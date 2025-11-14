@@ -1,0 +1,748 @@
+<div class="profile-container">
+  <h1>👤 Thông tin cá nhân</h1>
+  
+  <div class="profile-header">
+    <div class="avatar-section">
+      <div class="avatar-container">
+        <% if (user.avatar) { %>
+          <% 
+            // Add cache-busting timestamp for local avatars
+            let avatarUrl = user.avatar;
+            if (!user.avatar.startsWith('http') && !user.avatar.startsWith('https')) {
+              // Add timestamp to bypass browser cache
+              avatarUrl = user.avatar + (user.avatar.includes('?') ? '&' : '?') + 't=' + Date.now();
+            }
+          %>
+          <img src="<%= avatarUrl %>" alt="<%= user.name %>" class="avatar-large" id="avatarPreview" />
+        <% } else { %>
+          <div class="avatar-placeholder" id="avatarPreview">
+            <span><%= (user.name || 'U').charAt(0).toUpperCase() %></span>
+          </div>
+        <% } %>
+        <label for="avatarDisplay" class="avatar-upload-label" title="Thay đổi avatar">
+          <span class="avatar-upload-icon">📷</span>
+          <input 
+            type="file" 
+            id="avatarDisplay" 
+            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+            class="avatar-input"
+            onchange="previewAvatar(this)"
+          />
+        </label>
+      </div>
+      <div class="avatar-info">
+        <h2><%= user.name %></h2>
+        <p class="user-email"><%= user.email %></p>
+        <% if (user.google_id) { %>
+          <span class="auth-badge">🔵 Đăng nhập bằng Google</span>
+        <% } else { %>
+          <span class="auth-badge">🔒 Đăng nhập bằng mật khẩu</span>
+        <% } %>
+      </div>
+    </div>
+  </div>
+  
+  <div class="profile-content">
+    <div class="profile-main">
+      <!-- Profile Info Card -->
+      <div class="profile-card">
+        <div class="card-header">
+          <h3>📝 Thông tin cá nhân</h3>
+        </div>
+        <form action="/profile" method="post" class="profile-form" id="profileForm" enctype="multipart/form-data">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+          <input type="hidden" id="originalPhone" name="originalPhone" value="<%= user.phone || '' %>" />
+          <input type="hidden" id="originalAddress" name="originalAddress" value="<%= user.address || '' %>" />
+          
+          <!-- Hidden file input inside form - will be synced with visible input outside form -->
+          <input 
+            type="file" 
+            id="avatarFormInput" 
+            name="avatar" 
+            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+            style="display: none;"
+          />
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="name">Họ và tên *</label>
+              <input 
+                type="text" 
+                id="name" 
+                name="name" 
+                value="<%= user.name %>" 
+                required
+                placeholder="Nhập họ và tên"
+                autocomplete="name"
+              />
+            </div>
+            
+            <div class="form-group">
+              <label for="phone">Số điện thoại</label>
+              <input 
+                type="tel" 
+                id="phone" 
+                name="phone" 
+                value="<%= user.phone || '' %>" 
+                placeholder="0123456789 (không bắt buộc)"
+                pattern="[0-9]{10,11}|^$"
+                autocomplete="tel"
+              />
+              <small class="form-hint">Nhập số điện thoại 10-11 chữ số (có thể để trống, để trống sẽ giữ nguyên giá trị cũ)</small>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input 
+              type="email" 
+              id="email" 
+              name="email" 
+              value="<%= user.email %>" 
+              disabled
+              class="disabled-input"
+            />
+            <small class="form-hint">Email không thể thay đổi</small>
+          </div>
+          
+          <div class="form-group">
+            <label for="address">Địa chỉ</label>
+            <textarea 
+              id="address" 
+              name="address" 
+              rows="3" 
+              placeholder="Nhập địa chỉ của bạn (không bắt buộc)"
+              autocomplete="street-address"
+              maxlength="500"
+            ><%= user.address || '' %></textarea>
+            <small class="form-hint">Có thể để trống, để trống sẽ giữ nguyên giá trị cũ, tối đa 500 ký tự</small>
+          </div>
+          
+          <div class="form-actions">
+            <button type="submit" class="btn primary large">
+              <span>💾</span>
+              Lưu thay đổi
+            </button>
+            <a href="/" class="btn secondary">Hủy</a>
+          </div>
+          <div class="form-note">
+            <small>💡 Bạn có thể lưu từng phần, không cần nhập hết thông tin. Chỉ cần nhập tên là đủ.</small>
+          </div>
+        </form>
+      </div>
+
+      <!-- Change Password Card (only for non-Google users) -->
+      <% if (!user.google_id) { %>
+        <div class="profile-card password-card">
+          <div class="card-header">
+            <h3>🔐 Bảo mật tài khoản</h3>
+            <button type="button" class="btn-toggle-password" onclick="togglePasswordSection()">
+              <span class="toggle-icon" id="toggleIcon">▼</span>
+              <span class="toggle-text">Đổi mật khẩu</span>
+            </button>
+          </div>
+          
+          <% const showPasswordError = (typeof flash !== 'undefined' && flash.error && flash.error.some(e => e.includes('mật khẩu'))); %>
+          <div class="password-section" id="passwordSection"<% if (!showPasswordError) { %> style="display: none;"<% } %>>
+            <form action="/profile/change-password?_csrf=<%= csrfToken %>" method="post" class="password-form" id="passwordForm">
+              <div class="form-group">
+                <label for="current_password">Mật khẩu hiện tại *</label>
+                <input 
+                  type="password" 
+                  id="current_password" 
+                  name="current_password" 
+                  placeholder="Nhập mật khẩu hiện tại"
+                  autocomplete="current-password"
+                  required
+                />
+              </div>
+              
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="new_password">Mật khẩu mới *</label>
+                  <input 
+                    type="password" 
+                    id="new_password" 
+                    name="new_password" 
+                    placeholder="Nhập mật khẩu mới (tối thiểu 6 ký tự)"
+                    autocomplete="new-password"
+                    minlength="6"
+                    required
+                  />
+                  <small class="form-hint">Tối thiểu 6 ký tự</small>
+                </div>
+                
+                <div class="form-group">
+                  <label for="confirm_password">Xác nhận mật khẩu *</label>
+                  <input 
+                    type="password" 
+                    id="confirm_password" 
+                    name="confirm_password" 
+                    placeholder="Nhập lại mật khẩu mới"
+                    autocomplete="new-password"
+                    minlength="6"
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div class="form-actions">
+                <button type="submit" class="btn primary">
+                  <span>🔐</span>
+                  Đổi mật khẩu
+                </button>
+                <button type="button" class="btn secondary" onclick="togglePasswordSection()">Hủy</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      <% } %>
+    </div>
+    
+    <div class="profile-stats">
+      <div class="stat-card">
+        <div class="stat-icon">🛒</div>
+        <div class="stat-info">
+          <div class="stat-value"><%= orderCount || 0 %></div>
+          <div class="stat-label">Giao dịch</div>
+        </div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon">❤️</div>
+        <div class="stat-info">
+          <div class="stat-value"><%= wishlistCount || 0 %></div>
+          <div class="stat-label">Yêu thích</div>
+        </div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon">📅</div>
+        <div class="stat-info">
+          <div class="stat-value"><%= new Date(user.created_at).toLocaleDateString('vi-VN') %></div>
+          <div class="stat-label">Ngày tham gia</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function togglePasswordSection() {
+  const section = document.getElementById('passwordSection');
+  const toggleIcon = document.getElementById('toggleIcon');
+  const isHidden = section.style.display === 'none';
+  
+  section.style.display = isHidden ? 'block' : 'none';
+  toggleIcon.textContent = isHidden ? '▲' : '▼';
+  
+  if (isHidden) {
+    // Focus on first input when showing
+    setTimeout(() => {
+      document.getElementById('current_password')?.focus();
+    }, 100);
+  } else {
+    // Reset form when hiding
+    document.getElementById('passwordForm')?.reset();
+  }
+}
+
+// Preview avatar before upload and sync with form input
+function previewAvatar(input) {
+  const preview = document.getElementById('avatarPreview');
+  const formInput = document.getElementById('avatarFormInput');
+  
+  if (input.files && input.files[0]) {
+    const file = input.files[0];
+    
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      alert('Chỉ chấp nhận file ảnh (JPEG, PNG, GIF, WEBP)');
+      input.value = '';
+      if (formInput) formInput.value = '';
+      return;
+    }
+    
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File ảnh quá lớn. Kích thước tối đa là 5MB.');
+      input.value = '';
+      if (formInput) formInput.value = '';
+      return;
+    }
+    
+    // Sync file to form input (important: copy file to form input so it's submitted)
+    // Create a new FileList with the selected file
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+    if (formInput) {
+      formInput.files = dataTransfer.files;
+      console.log('✅ Avatar file synced to form input:', file.name, file.size, 'bytes');
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      // Check if preview is an img or placeholder div
+      if (preview && preview.tagName === 'IMG') {
+        preview.src = e.target.result;
+      } else if (preview) {
+        // Replace placeholder div with img
+        const img = document.createElement('img');
+        img.src = e.target.result;
+        img.alt = document.querySelector('.avatar-info h2')?.textContent || 'User';
+        img.className = 'avatar-large';
+        img.id = 'avatarPreview';
+        preview.parentNode.replaceChild(img, preview);
+      }
+    };
+    reader.onerror = function() {
+      alert('Có lỗi xảy ra khi đọc file. Vui lòng thử lại.');
+      input.value = '';
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+// Auto-open password section if there's a password-related error
+document.addEventListener('DOMContentLoaded', function() {
+  const passwordSection = document.getElementById('passwordSection');
+  const toggleIcon = document.getElementById('toggleIcon');
+  if (passwordSection && passwordSection.style.display === 'block') {
+    toggleIcon.textContent = '▲';
+  }
+});
+
+// Validate password confirmation
+document.addEventListener('DOMContentLoaded', function() {
+  const passwordForm = document.getElementById('passwordForm');
+  if (passwordForm) {
+    const newPassword = document.getElementById('new_password');
+    const confirmPassword = document.getElementById('confirm_password');
+    
+    function validatePasswordMatch() {
+      if (confirmPassword.value && newPassword.value !== confirmPassword.value) {
+        confirmPassword.setCustomValidity('Mật khẩu xác nhận không khớp');
+      } else {
+        confirmPassword.setCustomValidity('');
+      }
+    }
+    
+    if (newPassword && confirmPassword) {
+      newPassword.addEventListener('input', validatePasswordMatch);
+      confirmPassword.addEventListener('input', validatePasswordMatch);
+    }
+  }
+});
+</script>
+
+<style>
+.profile-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.profile-container h1 {
+  margin-bottom: 30px;
+  font-size: 32px;
+  color: var(--fg);
+}
+
+.profile-header {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 30px;
+  margin-bottom: 30px;
+}
+
+.avatar-section {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.avatar-container {
+  position: relative;
+  display: inline-block;
+}
+
+.avatar-large {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--green);
+  display: block;
+}
+
+.avatar-placeholder {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: var(--green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  font-weight: 700;
+  color: white;
+  border: 3px solid var(--green);
+}
+
+.avatar-upload-label {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 36px;
+  height: 36px;
+  background: var(--green);
+  border: 3px solid var(--card);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.avatar-upload-label:hover {
+  background: #15803d;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);
+}
+
+.avatar-upload-icon {
+  font-size: 18px;
+  color: white;
+}
+
+.avatar-input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  overflow: hidden;
+  z-index: -1;
+}
+
+.avatar-info h2 {
+  margin: 0 0 8px 0;
+  font-size: 24px;
+  color: var(--fg);
+}
+
+.user-email {
+  margin: 0 0 12px 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.auth-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  background: rgba(22, 163, 74, 0.1);
+  color: var(--green);
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.profile-content {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 30px;
+}
+
+.profile-main {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.profile-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 30px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--border);
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 20px;
+  color: var(--fg);
+}
+
+.btn-toggle-password {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--fg);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-toggle-password:hover {
+  background: rgba(22, 163, 74, 0.1);
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.toggle-icon {
+  font-size: 12px;
+  transition: transform 0.2s;
+}
+
+.profile-form,
+.password-form {
+  margin-top: 20px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: var(--fg);
+  font-size: 14px;
+}
+
+.form-group input,
+.form-group textarea {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--fg);
+  font-size: 15px;
+  font-family: inherit;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--green);
+  background: rgba(22, 163, 74, 0.05);
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.1);
+}
+
+.form-group input.disabled-input {
+  background: rgba(255, 255, 255, 0.01);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.form-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.password-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.form-note {
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: rgba(22, 163, 74, 0.1);
+  border: 1px solid rgba(22, 163, 74, 0.2);
+  border-radius: 8px;
+}
+
+.form-note small {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  display: block;
+}
+
+.form-actions .btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  border: none;
+}
+
+.form-actions .btn.large {
+  padding: 14px 28px;
+  font-size: 16px;
+}
+
+/* Ensure buttons have proper styling - override any conflicting styles */
+.profile-container .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  border: none;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.profile-container .btn.primary {
+  background: var(--gradient-primary);
+  color: white;
+  border: none;
+}
+
+.profile-container .btn.primary:hover {
+  background: linear-gradient(135deg, #15803d 0%, #166534 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);
+}
+
+.profile-container .btn.secondary {
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid var(--border);
+}
+
+.profile-container .btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.password-card .card-header {
+  flex-wrap: wrap;
+}
+
+.profile-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.stat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: all 0.2s;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  border-color: var(--green);
+}
+
+.stat-icon {
+  font-size: 32px;
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(22, 163, 74, 0.1);
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.stat-info {
+  flex: 1;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--fg);
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+@media (max-width: 968px) {
+  .profile-content {
+    grid-template-columns: 1fr;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .btn-toggle-password {
+    width: 100%;
+    justify-content: center;
+  }
+}
+</style>
