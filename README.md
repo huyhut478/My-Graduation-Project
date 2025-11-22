@@ -12,7 +12,7 @@ Hệ thống bán key phần mềm và game với đầy đủ tính năng quả
 - ✅ **Yêu thích**: Danh sách sản phẩm yêu thích
 - ✅ **Tin tức**: Quản lý tin tức, bài viết
 - ✅ **Admin Panel**: Dashboard quản lý toàn diện
-- ✅ **Lưu trữ dữ liệu**: Dữ liệu được lưu vào file JSON trong `data/` và PostgreSQL
+- ✅ **Lưu trữ dữ liệu**: Dữ liệu được lưu vào PostgreSQL
 
 ## 📋 Yêu cầu hệ thống
 
@@ -99,25 +99,13 @@ Server sẽ chạy tại: `http://localhost:3000`
 
 ## 📁 Cấu trúc dữ liệu
 
-Dữ liệu được lưu trữ ở 2 nơi:
+Dữ liệu được lưu trữ ở :
 
 ### 1. PostgreSQL Database
 - Tất cả dữ liệu chính (users, products, orders, etc.)
 - Session data (giỏ hàng, đăng nhập)
 - User carts (giỏ hàng theo user_id)
 
-### 2. File JSON trong `data/`
-- `users.json` - Người dùng
-- `products.json` - Sản phẩm
-- `orders.json` - Đơn hàng
-- `order_items.json` - Chi tiết đơn hàng
-- `order_keys.json` - Keys của đơn hàng
-- `categories.json` - Danh mục
-- `wishlist.json` - Yêu thích
-- `news.json` - Tin tức
-- `settings.json` - Cài đặt
-
-**Lưu ý:** Dữ liệu được lưu tự động vào file JSON mỗi khi có thao tác. Bạn có thể mở file JSON để xem và quản lý dữ liệu trực tiếp.
 
 ## 🔄 Scripts có sẵn
 
@@ -130,14 +118,6 @@ npm run create-db
 npm run create-user-carts-table
 ```
 
-### Đồng bộ dữ liệu
-```bash
-# Đồng bộ từ PostgreSQL → File JSON
-npm run sync-to-files
-
-# Đồng bộ từ File JSON → PostgreSQL
-npm run sync-to-postgresql
-```
 
 ### Chạy server
 ```bash
@@ -222,9 +202,6 @@ npm start
 - Kiểm tra session store có hoạt động không
 - Xem log trong console để debug
 
-### Dữ liệu không đồng bộ
-- Chạy `npm run sync-to-files` để đồng bộ từ PostgreSQL → File
-- Chạy `npm run sync-to-postgresql` để đồng bộ từ File → PostgreSQL
 
 ## 📄 License
 
