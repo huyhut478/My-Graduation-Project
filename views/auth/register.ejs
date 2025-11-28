@@ -1,22 +1,47 @@
 <div class="auth-container">
-  <h1>Đăng ký</h1>
-  <form action="/register?_csrf=<%= csrfToken %>" method="post" class="card card-sm">
-  <div class="p">
-    <div style="margin-bottom:10px">
-      <label>Họ tên</label>
-      <input name="name" required style="width:100%;padding:10px;border-radius:8px;border:1px solid #1f2937;background:#0f172a;color:#fff" />
+  <div class="card card-450">
+    <h1>Đăng ký</h1>
+
+    <% if (typeof flash !== 'undefined' && flash.error && flash.error.length) { %>
+      <div class="login-error-message">
+        <% flash.error.forEach(msg => { %>
+          <div class="error-text"><%= msg.replace(/\n/g, '<br/>') %></div>
+        <% }) %>
+      </div>
+    <% } %>
+
+    <% if (typeof flash !== 'undefined' && flash.success && flash.success.length) { %>
+      <div class="login-success-message">
+        <% flash.success.forEach(msg => { %>
+          <div class="success-text"><%= msg %></div>
+        <% }) %>
+      </div>
+    <% } %>
+
+    <form action="/register?_csrf=<%= csrfToken %>" method="post" class="login-form">
+      <div class="form-group">
+        <label for="name">Họ tên</label>
+        <input id="name" name="name" required placeholder="Họ và tên" autofocus />
+      </div>
+
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" required placeholder="your@email.com" />
+      </div>
+
+      <div class="form-group">
+        <label for="password">Mật khẩu</label>
+        <input id="password" name="password" type="password" required placeholder="••••••••" />
+      </div>
+
+      <button class="btn primary full" type="submit">Đăng ký</button>
+    </form>
+
+    <div class="login-footer">
+      <p class="muted">Đã có tài khoản? <a href="/login">Đăng nhập</a></p>
+      <p class="muted"><a href="/forgot-password">Quên mật khẩu?</a></p>
     </div>
-    <div style="margin-bottom:10px">
-      <label>Email</label>
-      <input name="email" type="email" required style="width:100%;padding:10px;border-radius:8px;border:1px solid #1f2937;background:#0f172a;color:#fff" />
-    </div>
-    <div style="margin-bottom:10px">
-      <label>Mật khẩu</label>
-      <input name="password" type="password" required style="width:100%;padding:10px;border-radius:8px;border:1px solid #1f2937;background:#0f172a;color:#fff" />
-    </div>
-    <button class="btn primary full" type="submit">Đăng ký</button>
   </div>
-  </form>
 </div>
 
 

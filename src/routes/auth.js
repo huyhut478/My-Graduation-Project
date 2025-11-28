@@ -439,6 +439,129 @@ router.get('/activate', (req, res) => {
   res.render('auth/activate', { title: 'Kích hoạt tài khoản', email, csrfToken: req.csrfToken ? req.csrfToken() : '' });
 });
 
+// GET /forgot-password - render page for entering the account email
+router.get('/forgot-password', (req, res) => {
+  const email = req.query.email || '';
+  res.render('auth/forgot-password', { title: 'Quên mật khẩu', email, csrfToken: req.csrfToken ? req.csrfToken() : '' });
+});
+
+// POST /forgot-password - send OTP for password reset
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const email = (req.body.email || '').toLowerCase().trim();
+    if (!email) {
+      req.flash('error', 'Thiếu email');
+      return res.redirect('/forgot-password');
+    }
+
+    // Verify account existence
+    const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
+    const user = await stmt.get(email);
+    if (!user) {
+      req.flash('error', 'Tài khoản không tồn tại');
+      return res.redirect('/forgot-password');
+    }
+
+    await sendOtp(email, 'Mã đặt lại mật khẩu');
+    req.flash('success', 'Đã gửi mã OTP đến email. Vui lòng kiểm tra email.');
+    return res.redirect(`/verify-reset?email=${encodeURIComponent(email)}`);
+  } catch (err) {
+    logger.error('forgot-password POST error:', err);
+    req.flash('error', 'Lỗi khi gửi mã OTP');
+    res.redirect('/forgot-password');
+  }
+});
+
+// GET /verify-reset - render OTP verification for reset
+router.get('/verify-reset', (req, res) => {
+  const email = req.query.email || '';
+  res.render('auth/verify-reset', { title: 'Xác thực OTP', email, csrfToken: req.csrfToken ? req.csrfToken() : '' });
+});
+
+// POST /verify-reset - verify OTP; if OK, store authorization in session and go to reset page
+router.post('/verify-reset', async (req, res) => {
+  try {
+    const email = (req.body.email || '').toLowerCase().trim();
+    const otp = req.body.otp;
+    if (!email || !otp) {
+      req.flash('error', 'Thiếu dữ liệu');
+      return res.redirect('/forgot-password');
+    }
+
+    const result = verifyOtp(email, otp);
+    if (!result.success) {
+      req.flash('error', result.message || 'OTP không hợp lệ');
+      return res.redirect(`/verify-reset?email=${encodeURIComponent(email)}`);
+    }
+
+    // Mark this email as authorized for password reset in the session
+    req.session.passwordResetEmail = email;
+    req.flash('success', 'Xác thực OTP thành công. Bạn có thể đặt lại mật khẩu.');
+    res.redirect(`/reset-password?email=${encodeURIComponent(email)}`);
+  } catch (err) {
+    logger.error('verify-reset POST error:', err);
+    req.flash('error', 'Lỗi khi xác nhận OTP');
+    res.redirect('/forgot-password');
+  }
+});
+
+// GET /reset-password - render form to set a new password
+router.get('/reset-password', (req, res) => {
+  const emailQuery = (req.query.email || '').toLowerCase().trim();
+  // ensure the user has recently verified OTP for this email
+  const allowedEmail = req.session.passwordResetEmail;
+  if (!allowedEmail || (emailQuery && allowedEmail !== emailQuery)) {
+    req.flash('error', 'Bạn chưa xác thực mã OTP cho tài khoản này hoặc phiên đã hết hạn');
+    return res.redirect('/forgot-password');
+  }
+
+  res.render('auth/reset-password', { title: 'Đặt lại mật khẩu', email: allowedEmail, csrfToken: req.csrfToken ? req.csrfToken() : '' });
+});
+
+// POST /reset-password - validate and set new password
+router.post('/reset-password',
+  body('password').isLength({ min: 6 }).withMessage('Mật khẩu tối thiểu 6 ký tự'),
+  body('confirm_password').custom((value, { req }) => {
+    if (value !== req.body.password) throw new Error('Mật khẩu xác nhận không khớp');
+    return true;
+  }),
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        req.flash('error', errors.array().map(e => e.msg).join('\n'));
+        return res.redirect('/reset-password');
+      }
+
+      const email = (req.body.email || '').toLowerCase().trim();
+      if (!email) {
+        req.flash('error', 'Thiếu email');
+        return res.redirect('/forgot-password');
+      }
+
+      if (!req.session.passwordResetEmail || req.session.passwordResetEmail !== email) {
+        req.flash('error', 'Bạn chưa xác thực mã OTP hoặc phiên đã hết hạn');
+        return res.redirect('/forgot-password');
+      }
+
+      const password = req.body.password;
+      const password_hash = bcrypt.hashSync(password, 10);
+
+      await pool.query('UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE email = $2', [password_hash, email]);
+
+      // Clear the session flag
+      delete req.session.passwordResetEmail;
+
+      req.flash('success', 'Đã đặt lại mật khẩu thành công. Bạn có thể đăng nhập bằng mật khẩu mới.');
+      return res.redirect('/login');
+    } catch (err) {
+      logger.error('reset-password POST error:', err);
+      req.flash('error', 'Lỗi khi cập nhật mật khẩu');
+      res.redirect('/forgot-password');
+    }
+  }
+);
+
 // POST /send-activation - send activation OTP
 router.post('/send-activation', async (req, res) => {
   try {

@@ -1,6 +1,6 @@
 <div class="auth-container">
   <div class="card card-450">
-    <h1>Quên mật khẩu</h1>
+    <h1>Xác thực mã OTP</h1>
 
     <% if (typeof flash !== 'undefined' && flash.error && flash.error.length) { %>
       <div class="login-error-message">
@@ -18,16 +18,18 @@
       </div>
     <% } %>
 
-    <form action="/forgot-password?_csrf=<%= csrfToken %>" method="post">
+    <form action="/verify-reset?_csrf=<%= csrfToken %>" method="post" class="login-form">
+      <input type="hidden" name="email" value="<%= typeof email !== 'undefined' ? email : '' %>" />
       <div class="form-group">
-        <label for="email">Email</label>
-        <input id="email" name="email" type="email" required placeholder="your@email.com" autocomplete="email" value="<%= typeof email !== 'undefined' ? email : '' %>" />
+        <label for="otp">Mã OTP</label>
+        <input id="otp" name="otp" type="text" required placeholder="Nhập mã OTP" autofocus />
+        <small class="form-hint">Mã sẽ được gửi tới email của bạn</small>
       </div>
-      <button class="btn primary full" type="submit">Gửi mã OTP để đặt lại mật khẩu</button>
+      <button class="btn primary full" type="submit">Xác thực OTP</button>
     </form>
 
     <div class="login-footer">
-      <p class="muted"><a href="/login">Quay lại đăng nhập</a></p>
-    </div>
+      <p class="muted"><a href="/forgot-password">Gửi lại mã / Thay đổi email</a></p>
     </div>
   </div>
+</div>
