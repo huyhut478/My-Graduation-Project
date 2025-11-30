@@ -37,7 +37,19 @@
             </div>
             
             <div class="item-price">
-              <span class="price"><%= ((item.price_cents || 0)/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) %></span>
+              <% if (item.discount_percent && Number(item.discount_percent) > 0) { %>
+                <% const orig = ((item.price_cents || 0)/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'});
+                   const discountedCents = Math.round((item.price_cents || 0) * (100 - Number(item.discount_percent)) / 100);
+                   const discounted = (discountedCents/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'});
+                %>
+                <div class="price-with-discount">
+                  <span class="price-original" style="text-decoration:line-through;color:var(--muted)"><%= orig %></span>
+                  <span class="price-discounted" style="color:var(--green);margin-left:8px;font-weight:700"><%= discounted %></span>
+                  <span class="discount-pill small">-<%= item.discount_percent %>%</span>
+                </div>
+              <% } else { %>
+                <span class="price"><%= ((item.price_cents || 0)/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) %></span>
+              <% } %>
             </div>
             
             <div class="item-actions">

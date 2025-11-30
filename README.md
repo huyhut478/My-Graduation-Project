@@ -97,6 +97,11 @@ npm start
 
 Server sẽ chạy tại: `http://localhost:3000`
 
+## Thêm favicon (logo tab / icon trang)
+
+Để thêm favicon cho trang, bạn có thể đặt file `favicon.ico` vào thư mục `public/img/icons` của dự án (đường dẫn sẽ là `public/img/icons/favicon.ico`).
+
+
 ## 📁 Cấu trúc dữ liệu
 
 Dữ liệu được lưu trữ ở :
@@ -180,6 +185,7 @@ npm start
 ### Bảng chính
 - `users` - Người dùng
 - `products` - Sản phẩm
+	- NEW: `discount_percent` (INTEGER) — Tỷ lệ % khuyến mãi áp dụng lên `price_cents` (mặc định 0)
 - `categories` - Danh mục
 - `orders` - Đơn hàng
 - `order_items` - Chi tiết đơn hàng

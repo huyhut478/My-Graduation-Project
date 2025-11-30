@@ -150,6 +150,18 @@ export function setupPageRoutes(app, { pool, db, getSetting, logger }) {
                 }
             };
 
+            // Provide wishlist ids to template when user is logged in
+            let wishlistIds = [];
+            if (req.session && req.session.user && req.session.user.id) {
+                try {
+                    const wishRes = await pool.query('SELECT product_id FROM wishlist WHERE user_id = $1', [req.session.user.id]);
+                    wishlistIds = wishRes.rows.map(r => r.product_id);
+                } catch (err) {
+                    logger.warn('Could not load wishlist ids for home route', err);
+                    wishlistIds = [];
+                }
+            }
+
             res.render('home', {
                 title: 'SafeKeyS',
                 categories,
@@ -163,7 +175,8 @@ export function setupPageRoutes(app, { pool, db, getSetting, logger }) {
                 priceRange,
                 structuredData,
                 description: 'Cửa hàng chuyên cung cấp key bản quyền phần mềm, game và thẻ nạp uy tín, nhanh chóng. Giao hàng tự động trong 5 phút, hỗ trợ 24/7.',
-                canonical: req.protocol + "://" + req.get('host') + req.originalUrl
+                canonical: req.protocol + "://" + req.get('host') + req.originalUrl,
+                wishlistIds
             });
         } catch (error) {
             console.error('❌ Error in home route:', error);
@@ -242,6 +255,18 @@ export function setupPageRoutes(app, { pool, db, getSetting, logger }) {
             const csrfToken = res.locals.csrfToken || '';
             const isLoggedIn = req.session && req.session.user;
 
+            // Load wishlist state for logged-in user so we can render heart state
+            let wishlistSet = new Set();
+            if (isLoggedIn && req.session.user && req.session.user.id) {
+                try {
+                    const wishRes = await pool.query('SELECT product_id FROM wishlist WHERE user_id = $1', [req.session.user.id]);
+                    wishlistSet = new Set(wishRes.rows.map(r => Number(r.product_id)));
+                } catch (err) {
+                    logger.warn('Could not load wishlist for pages filter API', err);
+                    wishlistSet = new Set();
+                }
+            }
+
             let html = '';
             if (products.length === 0) {
                 html = `
@@ -283,9 +308,9 @@ export function setupPageRoutes(app, { pool, db, getSetting, logger }) {
                 </button>
                 ${isLoggedIn ? `
                   <form class="wishlist-form" onsubmit="event.preventDefault(); toggleWishlist(${p.id}, '${csrfToken}');">
-                    <button type="submit" class="btn wishlist-btn" title="Thêm vào yêu thích">
-                      <span>🤍</span>
-                    </button>
+                                    <button type="submit" class="btn wishlist-btn ${wishlistSet.has(Number(p.id)) ? 'active' : ''}" title="Thêm vào yêu thích" aria-pressed="${wishlistSet.has(Number(p.id)) ? 'true' : 'false'}">
+                                            <svg class="icon-heart" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="currentColor"></path></svg>
+                                        </button>
                   </form>
                 ` : ''}
               </div>
@@ -323,11 +348,19 @@ export function setupPageRoutes(app, { pool, db, getSetting, logger }) {
       `);
             const products = await stmt2.all(category.id);
 
-            res.render('category', {
-                title: category.name + ' - SafeKeyS',
-                category,
-                products: products || []
-            });
+            // Provide wishlist ids to category template so hearts render correctly
+            let wishlistIds = [];
+            if (req.session && req.session.user && req.session.user.id) {
+                try {
+                    const wishRes = await pool.query('SELECT product_id FROM wishlist WHERE user_id = $1', [req.session.user.id]);
+                    wishlistIds = wishRes.rows.map(r => r.product_id);
+                } catch (err) {
+                    logger.warn('Could not load wishlist ids for category route', err);
+                    wishlistIds = [];
+                }
+            }
+
+            res.render('category', { title: category.name + ' - SafeKeyS', category, products: products || [], wishlistIds });
         } catch (error) {
             console.error('Error in category route:', error);
             req.flash('error', 'Có lỗi xảy ra khi tải danh mục');
@@ -381,6 +414,18 @@ export function setupPageRoutes(app, { pool, db, getSetting, logger }) {
                 }
             };
 
+            // Determine whether this product is favorited by current user
+            let isFavorited = false;
+            if (req.session && req.session.user && req.session.user.id) {
+                try {
+                    const favRes = await pool.query('SELECT 1 FROM wishlist WHERE user_id = $1 AND product_id = $2 LIMIT 1', [req.session.user.id, product.id]);
+                    isFavorited = favRes.rowCount > 0;
+                } catch (err) {
+                    logger.warn('Could not determine favorite for product page', err);
+                    isFavorited = false;
+                }
+            }
+
             res.render('product', {
                 title: product.title + ' - SafeKeyS',
                 product,
@@ -389,7 +434,8 @@ export function setupPageRoutes(app, { pool, db, getSetting, logger }) {
                 description: product.description || `Mua ${product.title} với giá tốt nhất tại SafeKeyS`,
                 canonical: req.protocol + "://" + req.get('host') + req.originalUrl,
                 ogUrl: req.protocol + "://" + req.get('host') + req.originalUrl,
-                ogImage: product.image || req.protocol + "://" + req.get('host') + "/img/placeholder.jpg"
+                ogImage: product.image || req.protocol + "://" + req.get('host') + "/img/placeholder.jpg",
+                isFavorited
             });
         } catch (error) {
             console.error('Error in product route:', error);

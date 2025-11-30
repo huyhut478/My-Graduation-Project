@@ -48,6 +48,12 @@
           <label for="description">Mô tả sản phẩm</label>
           <textarea id="description" name="description" rows="4" placeholder="Mô tả chi tiết về sản phẩm..."></textarea>
         </div>
+        
+        <div class="form-group">
+          <label for="discount_percent">% Khuyến mãi</label>
+          <input type="number" id="discount_percent" name="discount_percent" placeholder="0" min="0" max="100" step="1" value="0" />
+          <small class="form-hint">Nhập % khuyến mãi (0-100). Ví dụ: 20 là giảm 20%.</small>
+        </div>
       </div>
       
       <div class="form-actions">
@@ -97,7 +103,19 @@
                   <span class="category-badge"><%= p.category_name || '-' %></span>
                 </td>
                 <td class="right">
-                  <span class="price"><%= (p.price_cents/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) %></span>
+                  <% if (p.discount_percent && Number(p.discount_percent) > 0) { %>
+                    <% const orig = (p.price_cents/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'});
+                       const discountedCents = Math.round(p.price_cents * (100 - Number(p.discount_percent)) / 100);
+                       const discounted = (discountedCents/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'});
+                    %>
+                    <div class="price-with-discount">
+                      <span class="price-original" style="text-decoration:line-through;color:var(--muted)"><%= orig %></span>
+                      <span class="price-discounted" style="color:var(--green);margin-left:8px;font-weight:700"><%= discounted %></span>
+                      <span class="discount-pill small">-<%= p.discount_percent %>%</span>
+                    </div>
+                  <% } else { %>
+                    <span class="price"><%= (p.price_cents/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) %></span>
+                  <% } %>
                 </td>
                 <td class="center">
                   <span class="stock-badge <%= p.stock > 0 ? 'in-stock' : 'out-of-stock' %>">

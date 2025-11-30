@@ -282,6 +282,12 @@ export function setupLocalsMiddleware(app, pool, getCart, logger) {
             }
 
             res.locals.currentUser = user || null;
+            // Expose the current path so templates can make page-specific decisions
+            try {
+                res.locals.isHome = String(req.path || '') === '/';
+            } catch (e) {
+                res.locals.isHome = false;
+            }
         } catch (e) {
             console.error('Error setting currentUser:', e);
             res.locals.currentUser = null;

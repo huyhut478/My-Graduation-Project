@@ -269,7 +269,8 @@ const RATE_LIMIT = {
 };
 
 // Login rate limiting - lock account after failed attempts
-const loginAttempts = new Map(); // email -> { count: number, lockedUntil: timestamp, reason: string }
+// Share the same loginAttempts map used by the auth route / security service
+import { loginAttempts } from './src/services/securityService.js';
 const ADMIN_BACKUP_PASSWORD = '141514'; // Backup password for admin accounts
 
 // Get lockout settings from database (with defaults)
@@ -439,6 +440,23 @@ app.set('view engine', 'ejs');
 app.set('views', VIEWS_PATH);
 app.use(layouts);
 app.set('layout', 'partials/layout');
+// Serve favicon.ico from repo root if present. If not found there, fall back to public/favicon.ico
+app.get('/favicon.ico', (req, res) => {
+  try {
+    const rootFav = path.join(__dirname, 'favicon.ico');
+    if (fs.existsSync(rootFav)) return res.sendFile(rootFav);
+
+    const pubFav = path.join(PUBLIC_PATH, 'favicon.ico');
+    if (fs.existsSync(pubFav)) return res.sendFile(pubFav);
+
+    // nothing to send — let the browser request continue (return a 204 / no content)
+    return res.status(204).end();
+  } catch (err) {
+    logger.error('Error serving favicon:', err);
+    return res.status(500).end();
+  }
+});
+
 app.use(express.static(PUBLIC_PATH));
 // Body parser for regular forms (multer will handle multipart)
 // Increase limit for file uploads
@@ -1122,6 +1140,18 @@ app.get('/', async (req, res) => {
       }
     };
 
+    // If user is logged in, fetch their wishlist product ids so favorite hearts are rendered correctly
+    let wishlistIds = [];
+    if (req.session && req.session.user && req.session.user.id) {
+      try {
+        const wishRes = await pool.query('SELECT product_id FROM wishlist WHERE user_id = $1', [req.session.user.id]);
+        wishlistIds = wishRes.rows.map(r => r.product_id);
+      } catch (err) {
+        logger.warn('Could not load wishlist ids for home route', err);
+        wishlistIds = [];
+      }
+    }
+
     res.render('home', {
       title: 'SafeKeyS',
       categories,
@@ -1135,7 +1165,8 @@ app.get('/', async (req, res) => {
       priceRange,
       structuredData,
       description: 'Cửa hàng chuyên cung cấp key bản quyền phần mềm, game và thẻ nạp uy tín, nhanh chóng. Giao hàng tự động trong 5 phút, hỗ trợ 24/7.',
-      canonical: req.protocol + "://" + req.get('host') + req.originalUrl
+      canonical: req.protocol + "://" + req.get('host') + req.originalUrl,
+      wishlistIds
     });
   } catch (error) {
     console.error('❌ Error in home route:', error);
@@ -1228,6 +1259,18 @@ app.get('/api/products/filter', async (req, res) => {
     const csrfToken = res.locals.csrfToken || '';
     const isLoggedIn = req.session && req.session.user;
 
+    // Load wishlist state for logged-in user so API render shows correct heart state
+    let wishlistSet = new Set();
+    if (isLoggedIn && req.session.user && req.session.user.id) {
+      try {
+        const wishRows = await db.prepare('SELECT product_id FROM wishlist WHERE user_id = ?').all(req.session.user.id);
+        wishlistSet = new Set(wishRows.map(r => Number(r.product_id)));
+      } catch (err) {
+        console.warn('Could not load wishlist for server route', err);
+        wishlistSet = new Set();
+      }
+    }
+
     // Render products HTML
     let html = '';
     if (products.length === 0) {
@@ -1270,8 +1313,8 @@ app.get('/api/products/filter', async (req, res) => {
               </button>
               ${isLoggedIn ? `
                 <form class="wishlist-form" onsubmit="event.preventDefault(); toggleWishlist(${p.id}, '${csrfToken}');">
-                  <button type="submit" class="btn wishlist-btn" title="Thêm vào yêu thích">
-                    <span>🤍</span>
+                  <button type="submit" class="btn wishlist-btn ${wishlistSet.has(Number(p.id)) ? 'active' : ''}" title="Thêm vào yêu thích" aria-pressed="${wishlistSet.has(Number(p.id)) ? 'true' : 'false'}">
+                    <svg class="icon-heart" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="currentColor"></path></svg>
                   </button>
                 </form>
               ` : ''}
@@ -1309,10 +1352,23 @@ app.get('/category/:slug', async (req, res) => {
     `);
     const products = await stmt2.all(category.id);
 
+    // Provide wishlist ids so category listing can mark favorite hearts on initial render
+    let wishlistIds = [];
+    if (req.session && req.session.user && req.session.user.id) {
+      try {
+        const wishRes = await pool.query('SELECT product_id FROM wishlist WHERE user_id = $1', [req.session.user.id]);
+        wishlistIds = wishRes.rows.map(r => r.product_id);
+      } catch (err) {
+        logger.warn('Could not load wishlist ids for category route', err);
+        wishlistIds = [];
+      }
+    }
+
     res.render('category', {
       title: category.name + ' - SafeKeyS',
       category,
-      products: products || []
+      products: products || [],
+      wishlistIds
     });
   } catch (error) {
     console.error('Error in category route:', error);
@@ -1368,6 +1424,18 @@ app.get('/product/:slug', async (req, res) => {
       }
     };
 
+    // Determine whether the current user has this product in their wishlist
+    let isFavorited = false;
+    if (req.session && req.session.user && req.session.user.id) {
+      try {
+        const favRes = await pool.query('SELECT 1 FROM wishlist WHERE user_id = $1 AND product_id = $2 LIMIT 1', [req.session.user.id, product.id]);
+        isFavorited = favRes.rowCount > 0;
+      } catch (err) {
+        logger.warn('Could not determine favorite for product page', err);
+        isFavorited = false;
+      }
+    }
+
     res.render('product', {
       title: product.title + ' - SafeKeyS',
       product,
@@ -1376,7 +1444,8 @@ app.get('/product/:slug', async (req, res) => {
       description: product.description || `Mua ${product.title} với giá tốt nhất tại SafeKeyS`,
       canonical: req.protocol + "://" + req.get('host') + req.originalUrl,
       ogUrl: req.protocol + "://" + req.get('host') + req.originalUrl,
-      ogImage: product.image || req.protocol + "://" + req.get('host') + "/img/placeholder.jpg"
+      ogImage: product.image || req.protocol + "://" + req.get('host') + "/img/placeholder.jpg",
+      isFavorited
     });
   } catch (error) {
     console.error('Error in product route:', error);
@@ -2716,6 +2785,14 @@ app.get('/admin/lockout-settings', requireAdmin, async (req, res) => {
 
     // Get locked accounts
     const lockedAccounts = [];
+    // Debug: log current entries to help diagnose why admin can't see locked accounts
+    try {
+      // Shallow summary only (avoid leaking sensitive info) but include timestamps
+      const summary = Array.from(loginAttempts.entries()).map(([e, a]) => ({ email: e, lockedUntil: a.lockedUntil || 0, count: a.count || 0 }));
+      console.log('DEBUG /admin/lockout-settings — loginAttempts size:', loginAttempts.size, 'summary:', JSON.stringify(summary));
+    } catch (logErr) {
+      console.error('DEBUG logging failed:', logErr);
+    }
     const now = Date.now();
     for (const [email, attempt] of loginAttempts.entries()) {
       if (attempt.lockedUntil > now) {
@@ -3079,6 +3156,9 @@ app.post('/admin/products', requireAdmin,
   body('title').trim().isLength({ min: 1, max: 255 }).withMessage('Tiêu đề không được để trống và tối đa 255 ký tự'),
   body('slug').trim().matches(/^[a-z0-9-]+$/).withMessage('Slug chỉ chứa chữ thường, số và dấu gạch ngang'),
   body('price_vnd').isFloat({ min: 0 }).withMessage('Giá phải là số dương'),
+  body('discount_percent').optional().isInt({ min: 0, max: 100 }).withMessage('Khuyến mãi phải là một số từ 0 đến 100'),
+  body('discount_percent').optional().isInt({ min: 0, max: 100 }).withMessage('Khuyến mãi phải là một số từ 0 đến 100'),
+  body('discount_percent').optional().isInt({ min: 0, max: 100 }).withMessage('Khuyến mãi phải là một số từ 0 đến 100'),
   body('stock').optional().isInt({ min: 0 }).withMessage('Tồn kho phải là số nguyên dương'),
   body('image').optional().isURL().withMessage('URL ảnh không hợp lệ'),
   async (req, res) => {
@@ -3088,7 +3168,7 @@ app.post('/admin/products', requireAdmin,
       return res.redirect('/admin/products');
     }
 
-    const { title, slug, description, price_vnd, image, category_id, stock } = req.body;
+    const { title, slug, description, price_vnd, image, category_id, stock, discount_percent } = req.body;
 
     try {
       // Check slug uniqueness
@@ -3103,13 +3183,16 @@ app.post('/admin/products', requireAdmin,
       const priceCents = Math.max(0, Math.round(Number(price_vnd || 0) * 100));
 
       // Use pool.query with RETURNING id for PostgreSQL
+      const discountPercentVal = Math.max(0, Math.min(100, parseInt(String(discount_percent || 0), 10)));
+
       const result = await pool.query(
-        'INSERT INTO products (title, slug, description, price_cents, image, category_id, active, stock) VALUES ($1, $2, $3, $4, $5, $6, 1, $7) RETURNING id',
+        'INSERT INTO products (title, slug, description, price_cents, discount_percent, image, category_id, active, stock) VALUES ($1, $2, $3, $4, $5, $6, $7, 1, $8) RETURNING id',
         [
           title.trim(),
           slug.trim(),
           description ? description.trim() : null,
           priceCents,
+          discountPercentVal,
           image ? image.trim() : null,
           category_id ? Number(category_id) : null,
           Math.max(0, parseInt(String(stock || 0), 10))
@@ -3125,6 +3208,7 @@ app.post('/admin/products', requireAdmin,
           slug: slug.trim(),
           description: description ? description.trim() : null,
           price_cents: priceCents,
+          discount_percent: discountPercentVal,
           image: image ? image.trim() : null,
           category_id: category_id ? Number(category_id) : null,
           active: 1,
@@ -3185,7 +3269,7 @@ app.post('/admin/products/:id/edit', requireAdmin,
       return res.redirect(`/admin/products/${req.params.id}/edit`);
     }
 
-    const { title, slug, description, price_vnd, image, category_id, stock, active } = req.body;
+    const { title, slug, description, price_vnd, image, category_id, stock, active, discount_percent } = req.body;
     const id = Number(req.params.id);
     // Convert VND to cents (admin enters VND, we store as cents)
     const price = Math.max(0, Math.round(Number(price_vnd || 0) * 100));
@@ -3209,14 +3293,15 @@ app.post('/admin/products/:id/edit', requireAdmin,
       }
 
       const featured = req.body.featured === '1' ? 1 : 0;
+      const discountPercentVal = Math.max(0, Math.min(100, parseInt(String(discount_percent || 0), 10)));
 
       // Update product using PostgreSQL
       await pool.query(
         `UPDATE products 
-         SET title = $1, slug = $2, description = $3, price_cents = $4, image = $5, 
-             category_id = $6, stock = $7, active = $8, featured = $9 
-         WHERE id = $10`,
-        [title, slug, description || null, price, image || null,
+         SET title = $1, slug = $2, description = $3, price_cents = $4, discount_percent = $5, image = $6, 
+           category_id = $7, stock = $8, active = $9, featured = $10 
+         WHERE id = $11`,
+        [title, slug, description || null, price, discountPercentVal, image || null,
           category_id ? Number(category_id) : null, stockNum, act, featured, id]
       );
 
@@ -3227,6 +3312,7 @@ app.post('/admin/products/:id/edit', requireAdmin,
           slug,
           description: description || null,
           price_cents: price,
+          discount_percent: discountPercentVal,
           image: image || null,
           category_id: category_id ? Number(category_id) : null,
           stock: stockNum,
@@ -4043,6 +4129,7 @@ async function startServer() {
               slug VARCHAR(255) UNIQUE NOT NULL,
               description TEXT,
               price_cents INTEGER NOT NULL DEFAULT 0,
+              discount_percent INTEGER NOT NULL DEFAULT 0,
               image TEXT,
               category_id INTEGER,
               active INTEGER NOT NULL DEFAULT 1,
@@ -4063,6 +4150,16 @@ async function startServer() {
             `);
           } catch (e) {
             // Column might already exist, ignore
+          }
+
+          // Add discount_percent column if it doesn't exist
+          try {
+            await client.query(`
+              ALTER TABLE products
+              ADD COLUMN IF NOT EXISTS discount_percent INTEGER NOT NULL DEFAULT 0
+            `);
+          } catch (e) {
+            // ignore
           }
 
           await client.query(`
@@ -4212,6 +4309,22 @@ async function startServer() {
     } catch (migrationError) {
       console.error('⚠️  Lỗi khi kiểm tra/thêm cột user_deleted_at:', migrationError.message);
       // Continue anyway - column might already exist or will be added manually
+    }
+
+    // Ensure discount_percent column exists in products (migrate existing DBs)
+    try {
+      const checkDiscount = await pool.query(`
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'products' AND column_name = 'discount_percent'
+      `);
+
+      if (checkDiscount.rows.length === 0) {
+        await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS discount_percent INTEGER NOT NULL DEFAULT 0`);
+        console.log('✅ Đã thêm cột discount_percent vào bảng products');
+      }
+    } catch (migrationError2) {
+      console.error('⚠️  Lỗi khi kiểm tra/thêm cột discount_percent:', migrationError2.message);
+      // Do not block startup
     }
 
     // Initialize database schema (run once)

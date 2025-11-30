@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
+    "check:header": "node scripts/check-header.js",
     "backup": "node data/backup-database.js",
     "restore": "node data/restore-database.js",
     "export": "node data/export-database.js",

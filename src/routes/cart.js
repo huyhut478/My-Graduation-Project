@@ -156,7 +156,11 @@ router.post('/api/cart/add/:productId', requireAuth, async (req, res) => {
     const cart = await getCart(req);
     const key = String(product.id);
     if (!cart.items[key]) {
-      cart.items[key] = { product, qty: 0 };
+      // Use effective price (apply discount if present) and snapshot into cart item
+      const discount = Number(product.discount_percent || 0);
+      const effectivePrice = Math.round((product.price_cents || 0) * (100 - discount) / 100);
+      const productForCart = { ...product, price_cents: effectivePrice, original_price_cents: product.price_cents };
+      cart.items[key] = { product: productForCart, qty: 0 };
     }
 
     if (cart.items[key].qty + 1 > availableStock) {
@@ -165,7 +169,7 @@ router.post('/api/cart/add/:productId', requireAuth, async (req, res) => {
 
     cart.items[key].qty += 1;
     cart.totalQty += 1;
-    cart.totalCents += product.price_cents;
+    cart.totalCents += cart.items[key].product.price_cents;
     req.session.cart = cart;
     req.session.touch();
 
@@ -217,7 +221,12 @@ router.post('/cart/add/:productId', requireAuth, async (req, res) => {
 
     const cart = await getCart(req);
     const key = String(product.id);
-    if (!cart.items[key]) cart.items[key] = { product, qty: 0 };
+    if (!cart.items[key]) {
+      const discount = Number(product.discount_percent || 0);
+      const effectivePrice = Math.round((product.price_cents || 0) * (100 - discount) / 100);
+      const productForCart = { ...product, price_cents: effectivePrice, original_price_cents: product.price_cents };
+      cart.items[key] = { product: productForCart, qty: 0 };
+    }
 
     if (cart.items[key].qty + 1 > availableStock) {
       req.flash('error', 'Sản phẩm đã hết hàng hoặc không đủ tồn kho');
@@ -226,7 +235,7 @@ router.post('/cart/add/:productId', requireAuth, async (req, res) => {
 
     cart.items[key].qty += 1;
     cart.totalQty += 1;
-    cart.totalCents += product.price_cents;
+    cart.totalCents += cart.items[key].product.price_cents;
     req.session.cart = cart;
     req.session.touch();
 
@@ -335,17 +344,23 @@ router.post('/cart/update/:productId', requireAuth, async (req, res) => {
       if (cart.items[key]) {
         const oldQty = cart.items[key].qty;
         const oldTotal = oldQty * cart.items[key].product.price_cents;
-        const newTotal = newQty * product.price_cents;
+
+        // Use latest effective price from DB when changing quantity (snapshot it)
+        const discount = Number(product.discount_percent || 0);
+        const newEffectivePrice = Math.round((product.price_cents || 0) * (100 - discount) / 100);
+        const newTotal = newQty * newEffectivePrice;
 
         cart.totalQty = cart.totalQty - oldQty + newQty;
         cart.totalCents = cart.totalCents - oldTotal + newTotal;
         cart.items[key].qty = newQty;
-        cart.items[key].product = product;
+        cart.items[key].product = { ...product, price_cents: newEffectivePrice, original_price_cents: product.price_cents };
         req.flash('success', 'Đã cập nhật số lượng sản phẩm');
       } else {
-        cart.items[key] = { product, qty: newQty };
+        const discount = Number(product.discount_percent || 0);
+        const effectivePrice = Math.round((product.price_cents || 0) * (100 - discount) / 100);
+        cart.items[key] = { product: { ...product, price_cents: effectivePrice, original_price_cents: product.price_cents }, qty: newQty };
         cart.totalQty += newQty;
-        cart.totalCents += newQty * product.price_cents;
+        cart.totalCents += newQty * effectivePrice;
         req.flash('success', 'Đã thêm sản phẩm vào giỏ hàng');
       }
     }

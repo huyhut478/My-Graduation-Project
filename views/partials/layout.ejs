@@ -18,7 +18,7 @@
     <meta property="og:url" content="<%= typeof ogUrl !== 'undefined' ? ogUrl : 'http://localhost:3000' %>" />
     <meta property="og:title" content="<%= typeof title !== 'undefined' ? title : 'SafeKeyS - Cửa hàng Key Phần Mềm, Game Chính Hãng' %>" />
     <meta property="og:description" content="<%= typeof description !== 'undefined' ? description : 'Cửa hàng chuyên cung cấp key bản quyền phần mềm, game và thẻ nạp uy tín, nhanh chóng.' %>" />
-    <meta property="og:image" content="<%= typeof ogImage !== 'undefined' ? ogImage : '/img/placeholder.jpg' %>" />
+    <meta property="og:image" content="<%= typeof ogImage !== 'undefined' ? ogImage : (settings && settings.brand_logo ? settings.brand_logo : '/img/SafeKeyS.png') %>" />
     
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
@@ -27,14 +27,28 @@
     <meta property="twitter:description" content="<%= typeof description !== 'undefined' ? description : 'Cửa hàng key phần mềm và game chính hãng' %>" />
     <meta property="twitter:image" content="<%= typeof ogImage !== 'undefined' ? ogImage : '/img/placeholder.jpg' %>" />
     
-    <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+        <!-- Favicon: primary is /favicon.ico (place your favicon.ico in public/)
+          Provide PNG/Apple fallback so browsers can find a usable icon immediately -->
+        <link rel="icon" type="image/x-icon" href="/img/icons/favicon.ico" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/img/icons/favicon.ico" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/img/icons/favicon.ico" />
+        <link rel="mask-icon" href="/img/icons/favicon.ico" color="#16a34a" />
     
     <!-- Performance -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
     
     <!-- Stylesheets -->
+    <script>
+      // Immediately apply saved theme to avoid flash-of-unintended-theme on initial paint
+      (function(){
+        try {
+          var t = localStorage.getItem('theme');
+          if (t === 'light') document.documentElement.classList.add('theme-light');
+          else if (t === 'dark') document.documentElement.classList.remove('theme-light');
+        } catch (e) { /* ignore */ }
+      })();
+    </script>
     <link rel="stylesheet" href="/css/style.css" />
     
     <!-- Theme Color -->
@@ -48,58 +62,78 @@
     <% } %>
   </head>
   <body>
-    <a href="#main-content" class="skip-link">Bỏ qua đến nội dung chính</a>
-    <header>
-      <div class="container">
-        <!-- Hàng 1: Brand, Search, Auth + Cart -->
-        <div class="nav nav-top">
-          <button class="mobile-menu-toggle" onclick="toggleMobileMenu()" aria-label="Menu" id="mobile-menu-btn">
-            ☰
-          </button>
-          <a href="/" class="brand"><span class="dot"></span> SafeKeyS</a>
-        <form class="search-form search" action="/" method="get" role="search">
-          <input type="text" name="q" placeholder="Tìm kiếm..." value="<%= typeof q !== 'undefined' ? q : '' %>" aria-label="Tìm kiếm sản phẩm" />
-          <button type="submit" aria-label="Tìm kiếm">Tìm</button>
-        </form>
-          <div class="nav-user">
-            <% if (typeof currentUser !== 'undefined' && currentUser) { %>
-              <div class="user-greeting-top">
-                <% if (currentUser.avatar) { %>
-                  <% 
-                    // Add cache-busting timestamp for local avatars
-                    let avatarUrlHeader = currentUser.avatar;
-                    if (!currentUser.avatar.startsWith('http') && !currentUser.avatar.startsWith('https')) {
-                      // Add timestamp to bypass browser cache
-                      avatarUrlHeader = currentUser.avatar + (currentUser.avatar.includes('?') ? '&' : '?') + 't=' + Date.now();
-                    }
-                  %>
-                  <img src="<%= avatarUrlHeader %>" alt="<%= currentUser.name || 'User' %>" class="user-avatar-small" />
+        <a href="#main-content" class="skip-link">Bỏ qua đến nội dung chính</a>
+
+        <!-- Page header -->
+        <header>
+          <!-- Hàng 1: Brand, Search, Auth + Cart -->
+            <div class="nav nav-top">
+              <button class="mobile-menu-toggle" onclick="toggleMobileMenu()" aria-label="Menu" id="mobile-menu-btn">
+                ☰
+              </button>
+              <a href="/" class="brand">
+                <% /* Allow admins to configure a brand image (settings.brand_logo). If not set, we expect the logo at /img/icons/SafeKeyS.png. */ %>
+                <img src="<%= (settings && settings.brand_logo) ? settings.brand_logo : '/img/icons/SafeKeyS.png' %>" alt="SafeKeyS Logo" class="logo" />
+              </a>
+              <form class="search-form search" action="/" method="get" role="search">
+                <input type="text" name="q" placeholder="Tìm kiếm..." value="<%= typeof q !== 'undefined' ? q : '' %>" aria-label="Tìm kiếm sản phẩm" />
+                <button type="submit" aria-label="Tìm kiếm">Tìm</button>
+              </form>
+              <div class="nav-user">
+                <% if (typeof currentUser !== 'undefined' && currentUser) { %>
+                  <div class="user-greeting-top">
+                    <% if (currentUser.avatar) { %>
+                      <% 
+                        // Add cache-busting timestamp for local avatars
+                        let avatarUrlHeader = currentUser.avatar;
+                        if (!currentUser.avatar.startsWith('http') && !currentUser.avatar.startsWith('https')) {
+                          avatarUrlHeader = currentUser.avatar + (currentUser.avatar.includes('?') ? '&' : '?') + 't=' + Date.now();
+                        }
+                      %>
+                      <img src="<%= avatarUrlHeader %>" alt="<%= currentUser.name || 'User' %>" class="user-avatar-small" />
+                    <% } else { %>
+                      <div class="user-avatar-placeholder">
+                        <span><%= ((currentUser && currentUser.name) ? currentUser.name : 'U').charAt(0).toUpperCase() %></span>
+                      </div>
+                    <% } %>
+                    <span class="user-name-top"><%= currentUser.name || 'User' %></span>
+                  </div>
+                  <div class="user-actions">
+                    <a href="/wishlist" class="btn wishlist-btn-header" title="Danh sách yêu thích" aria-label="Danh sách yêu thích">
+                      <span aria-hidden="true">❤️</span>
+                      <span class="wishlist-text">Yêu thích</span>
+                    </a>
+                    <a href="/orders" class="btn">Lịch sử mua hàng</a>
+                    <a href="/profile" class="btn">Hồ sơ</a>
+                    <form action="/logout?_csrf=<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>" method="post" onsubmit="return confirm('Bạn có chắc chắn muốn đăng xuất?')" style="margin:0">
+                      <button class="btn">Đăng xuất</button>
+                    </form>
+                  </div>
                 <% } else { %>
-                  <div class="user-avatar-placeholder">
-                    <span><%= ((currentUser && currentUser.name) ? currentUser.name : 'U').charAt(0).toUpperCase() %></span>
+                  <div class="auth-links">
+                    <a class="btn" href="/login">Đăng nhập</a>
+                    <a class="btn primary" href="/register">Đăng ký</a>
                   </div>
                 <% } %>
-                <span class="user-name-top"><%= currentUser.name || 'User' %></span>
-              </div>
-              <div class="user-actions">
-              <a href="/wishlist" class="btn wishlist-btn-header" title="Danh sách yêu thích" aria-label="Danh sách yêu thích">
-                <span aria-hidden="true">❤️</span>
-                <span class="wishlist-text">Yêu thích</span>
-              </a>
-                <a href="/orders" class="btn">Lịch sử mua hàng</a>
-                <a href="/profile" class="btn">Hồ sơ</a>
-                <form action="/logout?_csrf=<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>" method="post" onsubmit="return confirm('Bạn có chắc chắn muốn đăng xuất?')" style="margin:0">
-                  <button class="btn">Đăng xuất</button>
-                </form>
-              </div>
-            <% } else { %>
-              <div class="auth-links">
-                <a class="btn" href="/login">Đăng nhập</a>
-                <a class="btn primary" href="/register">Đăng ký</a>
-              </div>
-            <% } %>
-            
-          <a class="btn cart-btn" href="/cart" aria-label="Giỏ hàng" title="Giỏ hàng" id="cart-link">
+
+                <!-- Header settings dropdown (dark mode) -->
+                <div class="header-settings" id="header-settings">
+                  <button id="settings-btn" class="btn settings-toggle" aria-haspopup="true" aria-expanded="false" aria-label="Cài đặt">⚙️</button>
+                  <div id="settings-dropdown" class="settings-dropdown" hidden>
+                    <div class="settings-item">
+                      <label for="dark-mode-toggle" class="settings-label">
+                        <input type="checkbox" id="dark-mode-toggle" />
+                        <span>Chế độ tối</span>
+                      </label>
+                    </div>
+                    <div class="settings-item">
+                      <a href="/profile" class="muted">Cài đặt tài khoản</a>
+                    </div>
+                    <!-- reset-theme-btn removed per request: not adding unnecessary controls -->
+                  </div>
+                </div>
+
+                <a class="btn cart-btn" href="/cart" aria-label="Giỏ hàng" title="Giỏ hàng" id="cart-link">
             <svg class="cart-icon" viewBox="0 0 576 512" width="20" height="20" aria-hidden="true">
               <path d="M551.991 64H144.28l-8.726-44.608C133.35 8.128 123.478 0 112 0H12C5.373 0 0 5.373 0 12v24c0 6.627 5.373 12 12 12h80.24l69.594 355.701C150.796 415.201 144 430.802 144 448c0 35.346 28.654 64 64 64s64-28.654 64-64a63.681 63.681 0 0 0-8.583-32h145.167a63.681 63.681 0 0 0-8.583 32c0 35.346 28.654 64 64 64 35.346 0 64-28.654 64-64 0-18.136-7.556-34.496-19.676-46.142l1.035-4.757c3.254-14.96-8.142-29.101-23.452-29.101H203.76l-9.39-48h312.405c11.29 0 21.054-7.869 23.452-18.902l45.216-208C578.695 78.139 567.299 64 551.991 64zM208 472c-13.234 0-24-10.766-24-24s10.766-24 24-24 24 10.766 24 24-10.766 24-24 24zm256 0c-13.234 0-24-10.766-24-24s10.766-24 24-24 24 10.766 24 24-10.766 24-24 24zm23.438-200H184.98l-31.31-160h368.548l-34.78 160z" fill="currentColor"></path>
             </svg>
@@ -178,38 +212,7 @@
       </div>
     </footer>
     
-    <script>
-      function toggleMobileMenu() {
-        const menu = document.getElementById('mobile-menu');
-        const btn = document.getElementById('mobile-menu-btn');
-        if (menu) {
-          menu.classList.toggle('mobile-open');
-          if (btn) {
-            btn.textContent = menu.classList.contains('mobile-open') ? '✕' : '☰';
-          }
-        }
-      }
-      
-      // Close mobile menu when clicking outside
-      document.addEventListener('click', function(e) {
-        const menu = document.getElementById('mobile-menu');
-        const btn = document.getElementById('mobile-menu-btn');
-        if (menu && btn && !menu.contains(e.target) && !btn.contains(e.target)) {
-          menu.classList.remove('mobile-open');
-          if (btn) btn.textContent = '☰';
-        }
-      });
-      
-      // Close mobile menu on window resize (if becomes desktop)
-      window.addEventListener('resize', function() {
-        if (window.innerWidth > 900) {
-          const menu = document.getElementById('mobile-menu');
-          const btn = document.getElementById('mobile-menu-btn');
-          if (menu) menu.classList.remove('mobile-open');
-          if (btn) btn.textContent = '☰';
-        }
-      });
-    </script>
+    <script src="/js/site.js"></script>
   </body>
   </html>
 

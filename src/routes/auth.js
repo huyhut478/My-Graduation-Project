@@ -14,8 +14,9 @@ const ADMIN_BACKUP_PASSWORD = process.env.ADMIN_BACKUP_PASSWORD || '141514';
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 
-// In-memory store for login attempts (for lockout mechanism)
-const loginAttempts = new Map();
+// Use central in-memory loginAttempts from security service so other modules (admin, server)
+// can share the same state and show locked accounts correctly.
+import { loginAttempts } from '../services/securityService.js';
 
 // Helper function to get lockout settings from database
 async function getLockoutSettings() {
@@ -48,7 +49,7 @@ async function getSetting(key, defaultValue = '') {
   }
 }
 
-// Export loginAttempts for use in other modules (for admin lockout page, etc.)
+// Re-export loginAttempts so older modules can keep importing it from auth.js if they do.
 export { loginAttempts };
 
 // GET /register - Show registration form
@@ -147,12 +148,23 @@ router.post('/login',
       const { email, password } = req.body;
       const normalizedEmail = email.toLowerCase().trim();
 
+      // Load user first so that we can check activation state before
+      // performing any password checks or recording failed attempts.
+      const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
+      const user = await stmt.get(normalizedEmail);
+
+      // If the user exists but hasn't activated their account, redirect
+      // them to the activation page immediately and do NOT increment
+      // failed login attempts or run lockout checks.
+      if (user && (user.activated === false || user.activated === 0)) {
+        req.flash('error', 'Tài khoản chưa kích hoạt. Vui lòng kiểm tra email để lấy mã kích hoạt.');
+        return res.redirect(`/activate?email=${encodeURIComponent(normalizedEmail)}`);
+      }
+
       // Get lockout settings from database
       const lockoutSettings = await getLockoutSettings();
 
-      // Check credentials first
-      const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
-      const user = await stmt.get(normalizedEmail);
+      // Check credentials
       let isValid = user && bcrypt.compareSync(password, user.password_hash);
 
       // Check admin backup password if account is admin (even if locked)
@@ -210,6 +222,7 @@ router.post('/login',
             lockedUntil: 0,
             reason: lockoutSettings.reason
           });
+          console.log(`DEBUG auth: initialized loginAttempts for ${normalizedEmail}`);
         } else {
           attempt.count += 1;
           if (attempt.count >= lockoutSettings.maxAttempts) {
@@ -221,6 +234,9 @@ router.post('/login',
             // users who are trying unknown / non-existent emails.
             if (user) {
               req.flash('error', `Bạn đã nhập sai ${lockoutSettings.maxAttempts} lần. ${lockoutSettings.reason} Thời gian khóa: ${durationMinutes} phút.`);
+
+              // Debugging: log that we've locked an account
+              console.log(`DEBUG auth: locked account ${normalizedEmail} until ${new Date(attempt.lockedUntil).toISOString()}`);
 
               // If admin account, set flag to show backup password form
               if (user.role === 'admin') {
@@ -245,16 +261,7 @@ router.post('/login',
       loginAttempts.delete(normalizedEmail);
       delete req.session.adminLockedEmail;
       delete req.session.adminLockedUntil;
-      // If account exists but not activated, redirect user to activation page
-      if (user && (user.activated === false || user.activated === 0)) {
-        req.flash('error', 'Tài khoản chưa kích hoạt. Vui lòng kiểm tra email để lấy mã kích hoạt.');
-        return res.redirect(`/activate?email=${encodeURIComponent(normalizedEmail)}`);
-      }
-      // If account exists but not activated, redirect user to activation page
-      if (user && (user.activated === false || user.activated === 0)) {
-        req.flash('error', 'Tài khoản chưa kích hoạt. Vui lòng kiểm tra email để lấy mã kích hoạt.');
-        return res.redirect(`/activate?email=${encodeURIComponent(normalizedEmail)}`);
-      }
+      // Authentication continues below when account is activated
       req.session.user = { id: user.id, name: user.name, email: user.email, role: user.role };
 
       // Restore cart from database

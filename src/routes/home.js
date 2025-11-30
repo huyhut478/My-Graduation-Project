@@ -122,6 +122,18 @@ router.get('/', async (req, res) => {
       }
     };
 
+    // If user is logged in, fetch wishlist product ids so we can mark favorites on initial render
+    let wishlistIds = [];
+    if (req.session && req.session.user && req.session.user.id) {
+      try {
+        const wishRes = await pool.query('SELECT product_id FROM wishlist WHERE user_id = $1', [req.session.user.id]);
+        wishlistIds = wishRes.rows.map(r => r.product_id);
+      } catch (err) {
+        logger.warn('Could not load wishlist ids for user on home route', err);
+        wishlistIds = [];
+      }
+    }
+
     res.render('home', {
       title: 'SafeKeyS',
       categories,
@@ -135,7 +147,8 @@ router.get('/', async (req, res) => {
       priceRange,
       structuredData,
       description: 'Cửa hàng chuyên cung cấp key bản quyền phần mềm, game và thẻ nạp uy tín, nhanh chóng. Giao hàng tự động trong 5 phút, hỗ trợ 24/7.',
-      canonical: req.protocol + '://' + req.get('host') + req.originalUrl
+      canonical: req.protocol + '://' + req.get('host') + req.originalUrl,
+      wishlistIds
     });
   } catch (error) {
     logger.error('Error in home route:', error);
@@ -203,6 +216,18 @@ router.get('/api/products/filter', async (req, res) => {
     const csrfToken = res.locals.csrfToken || '';
     const isLoggedIn = req.session && req.session.user;
 
+    // When generating filtered HTML we also need wishlist state for the logged-in user
+    let wishlistSet = new Set();
+    if (isLoggedIn && req.session.user && req.session.user.id) {
+      try {
+        const wishRes = await pool.query('SELECT product_id FROM wishlist WHERE user_id = $1', [req.session.user.id]);
+        wishlistSet = new Set(wishRes.rows.map(r => Number(r.product_id)));
+      } catch (err) {
+        logger.warn('Could not load wishlist for API filter', err);
+        wishlistSet = new Set();
+      }
+    }
+
     let html = '';
     if (products.length === 0) {
       html = `
@@ -240,10 +265,10 @@ router.get('/api/products/filter', async (req, res) => {
               <button class="btn primary" onclick="addToCart(${p.id}, false, '${csrfToken}')" ${p.stock === 0 ? 'disabled' : ''}>
                 ${p.stock === 0 ? 'Hết hàng' : 'Thêm vào giỏ'}
               </button>
-              ${isLoggedIn ? `
+                ${isLoggedIn ? `
                 <form class="wishlist-form" onsubmit="event.preventDefault(); toggleWishlist(${p.id}, '${csrfToken}');">
-                  <button type="submit" class="btn wishlist-btn" title="Thêm vào yêu thích">
-                    <span>🤍</span>
+                  <button type="submit" class="btn wishlist-btn ${wishlistSet.has(Number(p.id)) ? 'active' : ''}" title="Thêm vào yêu thích" aria-pressed="${wishlistSet.has(Number(p.id)) ? 'true' : 'false'}">
+                    <svg class="icon-heart" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="currentColor"></path></svg>
                   </button>
                 </form>
               ` : ''}
@@ -277,7 +302,19 @@ router.get('/category/:slug', async (req, res) => {
     `);
     const products = await stmt2.all(category.id);
 
-    res.render('category', { title: category.name + ' - SafeKeyS', category, products: products || [] });
+    // Provide wishlist ids to template so UI can reflect favorites
+    let wishlistIds = [];
+    if (req.session && req.session.user && req.session.user.id) {
+      try {
+        const wishRes = await pool.query('SELECT product_id FROM wishlist WHERE user_id = $1', [req.session.user.id]);
+        wishlistIds = wishRes.rows.map(r => r.product_id);
+      } catch (err) {
+        logger.warn('Could not load wishlist ids for category route', err);
+        wishlistIds = [];
+      }
+    }
+
+    res.render('category', { title: category.name + ' - SafeKeyS', category, products: products || [], wishlistIds });
   } catch (error) {
     logger.error('Error in category route:', error);
     req.flash('error', 'Có lỗi xảy ra khi tải danh mục');
@@ -329,6 +366,18 @@ router.get('/product/:slug', async (req, res) => {
       }
     };
 
+    // Check whether this product is already in the current user's wishlist
+    let isFavorited = false;
+    if (req.session && req.session.user && req.session.user.id) {
+      try {
+        const favRes = await pool.query('SELECT 1 FROM wishlist WHERE user_id = $1 AND product_id = $2 LIMIT 1', [req.session.user.id, product.id]);
+        isFavorited = favRes.rowCount > 0;
+      } catch (err) {
+        logger.warn('Could not determine favorite for product page', err);
+        isFavorited = false;
+      }
+    }
+
     res.render('product', {
       title: product.title + ' - SafeKeyS',
       product,
@@ -336,6 +385,7 @@ router.get('/product/:slug', async (req, res) => {
       structuredData,
       description: product.description || `Mua ${product.title} với giá tốt nhất tại SafeKeyS`,
       canonical: req.protocol + '://' + req.get('host') + req.originalUrl,
+      isFavorited,
       ogUrl: req.protocol + '://' + req.get('host') + req.originalUrl,
       ogImage: product.image || req.protocol + '://' + req.get('host') + '/img/placeholder.jpg'
     });

@@ -39,9 +39,10 @@ body {
   color: var(--fg);
   font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
   line-height: 1.6;
-  font-size: 16px;
+  font-size: 14px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  zoom: 0.75;
 }
 
 a {
@@ -298,6 +299,160 @@ form.search-form button:active {
   white-space: nowrap;
 }
 
+/* Header settings dropdown */
+.header-settings {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.settings-toggle {
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 16px;
+}
+
+.settings-dropdown {
+  position: absolute;
+  right: 0;
+  top: 56px;
+  width: 240px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 1200;
+}
+
+/* Ensure the dropdown responds to the HTML `hidden` attribute (hidden should hide it) */
+.settings-dropdown[hidden] {
+  display: none !important;
+  opacity: 0;
+  transform-origin: top right;
+}
+
+/* When visible, allow a small pop animation */
+.settings-dropdown:not([hidden]) {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.settings-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 8px;
+}
+
+.settings-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: var(--fg);
+}
+
+.settings-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--green);
+}
+
+/* Light theme overrides */
+.theme-light {
+  --bg: #ffffff;
+  --bg-secondary: #f8fafc;
+  --fg: #0f172a;
+  --fg-secondary: #475569;
+  --muted: #6b7280;
+  --green: #16a34a;
+  --green-700: #15803d;
+  --green-500: #16a34a;
+  --green-light: rgba(22, 163, 74, 0.06);
+  --green-glow: rgba(22, 163, 74, 0.12);
+  --card: #ffffff;
+  --card-hover: #f1f5f9;
+  --border: #e6e6e6;
+  --border-light: #d1d5db;
+  --shadow: rgba(2,6,23,0.08);
+  --shadow-lg: rgba(2,6,23,0.12);
+  --gradient-primary: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  --gradient-card: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+}
+
+/* Quick transition when theme changes */
+body, .btn, .form-input, .form-textarea, .settings-dropdown {
+  transition: background-color 220ms ease, color 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+}
+
+/* Light-theme header overrides to ensure good contrast */
+.theme-light header {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-bottom-color: var(--border) !important;
+  box-shadow: 0 2px 8px var(--shadow) !important;
+  color: var(--fg) !important;
+}
+
+.theme-light header::after {
+  background: linear-gradient(90deg, transparent, rgba(22, 163, 74, 0.06), transparent) !important;
+}
+
+.theme-light .nav-top,
+.theme-light .nav-bottom {
+  background: transparent;
+  border-bottom: 1px solid var(--border);
+}
+
+.theme-light .brand {
+  color: var(--fg) !important;
+}
+
+.theme-light .btn {
+  background: rgba(255,255,255,0.9);
+  border-color: var(--border);
+  color: var(--fg);
+  box-shadow: 0 2px 8px var(--shadow);
+}
+
+.theme-light .btn:hover {
+  transform: translateY(-2px);
+}
+
+.theme-light .btn.primary {
+  /* keep primary green but ensure legible text */
+  color: #fff;
+}
+
+.theme-light form.search-form input {
+  background: rgba(0,0,0,0.03);
+  color: var(--fg);
+  border-color: var(--border);
+}
+
+.theme-light .user-greeting-top {
+  background: rgba(22,163,74,0.06);
+  border-color: rgba(22,163,74,0.12);
+  color: var(--fg);
+}
+
+.theme-light .settings-dropdown {
+  background: var(--card);
+  border-color: var(--border);
+  color: var(--fg);
+}
+
+.theme-light .cart-btn {
+  background: rgba(255,255,255,0.9);
+  border-color: var(--border);
+  color: var(--fg);
+}
+
 .user-info {
   display: flex;
   align-items: center;
@@ -362,6 +517,32 @@ form.search-form button:active {
 
 .btn:active {
   transform: translateY(0);
+}
+
+/* Improve contrast for select / dropdown elements across all themes */
+.form-group select,
+select {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--fg);
+  font-size: 14px;
+}
+
+.form-group select option,
+select option {
+  background: var(--card);
+  color: var(--fg);
+}
+
+/* Small filter selects (used in admin lists) */
+.filter-select {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--fg);
 }
 
 .btn.admin {
@@ -476,6 +657,22 @@ form.search-form button:active {
   box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
 }
 
+/* Discount pill (used across product cards, product detail, wishlist, cart, admin list) */
+.discount-pill {
+  display: inline-block;
+  background: rgba(239,68,68,0.06); /* soft red background */
+  border: 1px solid rgba(239,68,68,0.18);
+  color: #ef4444; /* red text */
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.discount-pill.small { padding: 2px 6px; font-size: 11px; border-radius: 6px; font-weight:600 }
+
 @keyframes pulse {
   0%, 100% {
     transform: scale(1);
@@ -510,6 +707,23 @@ form.search-form button:active {
   color: white;
   transform: scale(1.05);
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+/* Heart SVG icon styling for wishlist buttons */
+.icon-heart {
+  width: 18px;
+  height: 18px;
+  display: inline-block;
+  vertical-align: middle;
+  color: var(--muted);
+  transition: color 0.15s ease, transform 0.12s ease;
+}
+
+.wishlist-btn.active .icon-heart,
+.wishlist-btn-large.active .icon-heart,
+.wishlist-btn-header.active .icon-heart {
+  color: #ef4444; /* red when favorited */
+  transform: scale(1.05);
 }
 
 .wishlist-text {
@@ -1400,6 +1614,11 @@ th {
   object-fit: contain;
   border-radius: 6px; /* bo góc nhẹ giống phần payment method */
   margin-right: 6px;
+}
+.brand img.logo {
+  height: 60px; /* chỉnh kích thước logo */
+  display: inline-block;
+  vertical-align: middle;
 }
 
 

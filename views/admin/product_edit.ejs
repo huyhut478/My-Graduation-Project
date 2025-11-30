@@ -88,6 +88,18 @@
           </div>
 
           <div class="form-group">
+            <label for="discount_percent">
+              <span class="label-text">% Khuyến mãi</span>
+            </label>
+            <div class="input-with-icon">
+              <input type="number" id="discount_percent" name="discount_percent"
+                     value="<%= (product.discount_percent || 0) %>"
+                     min="0" max="100" step="1" placeholder="0" />
+            </div>
+            <small class="form-hint">Nhập % khuyến mãi (0-100). Ví dụ: 20 là giảm 20%.</small>
+          </div>
+
+          <div class="form-group">
             <label for="stock">
               <span class="label-text">📦 Số lượng tồn kho</span>
             </label>

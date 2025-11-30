@@ -38,7 +38,14 @@
             <% } else { %>
               <h3><%= (product && product.title) ? product.title : 'Sản phẩm' %></h3>
             <% } %>
-            <p class="item-price"><%= (((product && product.price_cents) ? product.price_cents : 0)/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) %></p>
+            <% if (product && product.original_price_cents && product.original_price_cents > product.price_cents) { %>
+              <% const orig = ((product.original_price_cents || 0)/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'});
+                 const curr = ((product.price_cents || 0)/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'});
+              %>
+              <p class="item-price"><span style="text-decoration:line-through;color:var(--muted)"><%= orig %></span> <span style="color:var(--green);font-weight:700;margin-left:8px"><%= curr %></span> <span class="discount-pill small">-<%= product.discount_percent || 0 %>%</span></p>
+            <% } else { %>
+              <p class="item-price"><%= (((product && product.price_cents) ? product.price_cents : 0)/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) %></p>
+            <% } %>
             <div class="stock-info">
               <% if (product && product.stock && product.stock > 0) { %>
                 <span class="in-stock">Còn hàng (<%= product.stock %> sản phẩm)</span>

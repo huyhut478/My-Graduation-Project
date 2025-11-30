@@ -1,4 +1,5 @@
-import bcrypt from 'bcryptjs';
+// import bcrypt from 'bcryptjs';
+import { sendOtp, verifyOtp } from '../services/otpService.js';
 
 export function setupOrderRoutes(app, {
     pool,
@@ -24,7 +25,8 @@ export function setupOrderRoutes(app, {
                     keysByOrderItem: {},
                     keyDisplayTitle: '',
                     keyDisplayMessage: '',
-                    needsPasswordVerification: true
+                    needsPasswordVerification: true,
+                    showOtpInput: !!req.session.ordersOtpRequestedAt
                 });
             }
 
@@ -84,29 +86,67 @@ export function setupOrderRoutes(app, {
         }
     });
 
-    // Password verification for viewing keys
-    app.post('/orders/verify-password', requireAuth, async (req, res) => {
+
+
+    // Request OTP to view orders keys
+    app.post('/orders/request-otp', requireAuth, async (req, res) => {
         try {
-            const { password } = req.body;
-            const userId = getUserId(req);
-            const userResult = await pool.query('SELECT password_hash FROM users WHERE id = $1', [userId]);
-            if (userResult.rows.length === 0 || !userResult.rows[0].password_hash) {
-                req.flash('error', 'Không tìm thấy tài khoản');
+            let email = req.user && req.user.email;
+            if (!email) {
+                const userId = getUserId(req);
+                const userResult = await pool.query('SELECT email FROM users WHERE id = $1', [userId]);
+                if (userResult.rows.length === 0 || !userResult.rows[0].email) {
+                    req.flash('error', 'Không tìm thấy email người dùng để gửi OTP');
+                    return res.redirect('/orders');
+                }
+                email = userResult.rows[0].email;
+            }
+
+            await sendOtp(email, 'Mã xác thực để xem lịch sử giao dịch');
+            req.session.ordersOtpRequestedAt = Date.now();
+            req.flash('success', 'Mã OTP đã được gửi tới email của bạn');
+            return res.redirect('/orders');
+        } catch (err) {
+            logger.error('Error requesting OTP for orders:', err);
+            req.flash('error', 'Không thể gửi mã OTP — vui lòng thử lại sau');
+            return res.redirect('/orders');
+        }
+    });
+
+    // Verify OTP for viewing orders/keys
+    app.post('/orders/verify-otp', requireAuth, async (req, res) => {
+        try {
+            const { otp } = req.body;
+            if (!otp) {
+                req.flash('error', 'Vui lòng nhập mã OTP');
                 return res.redirect('/orders');
             }
-            const user = userResult.rows[0];
-            if (bcrypt.compareSync(password, user.password_hash)) {
-                req.session.ordersPasswordVerified = true;
-                req.flash('success', 'Xác thực thành công');
-                return res.redirect('/orders');
+
+            let email = req.user && req.user.email;
+            if (!email) {
+                const userId = getUserId(req);
+                const userResult = await pool.query('SELECT email FROM users WHERE id = $1', [userId]);
+                if (userResult.rows.length === 0 || !userResult.rows[0].email) {
+                    req.flash('error', 'Không tìm thấy email người dùng');
+                    return res.redirect('/orders');
+                }
+                email = userResult.rows[0].email;
+            }
+
+            const result = verifyOtp(email, otp);
+            if (result && result.success) {
+                req.session.ordersPasswordVerified = true; // reuse existing flag
+                // clear the request marker
+                delete req.session.ordersOtpRequestedAt;
+                req.flash('success', 'Xác thực OTP thành công — bạn đã được phép xem lịch sử giao dịch');
             } else {
-                req.flash('error', 'Mật khẩu không đúng');
-                return res.redirect('/orders');
+                req.flash('error', result && result.message ? result.message : 'OTP không hợp lệ');
             }
-        } catch (error) {
-            logger.error('Error verifying orders password:', error);
-            req.flash('error', 'Có lỗi xảy ra khi xác thực');
-            res.redirect('/orders');
+            return res.redirect('/orders');
+        } catch (err) {
+            logger.error('Error verifying orders OTP:', err);
+            req.flash('error', 'Không thể xác thực OTP — vui lòng thử lại');
+            return res.redirect('/orders');
         }
     });
 
