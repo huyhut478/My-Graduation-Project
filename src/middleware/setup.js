@@ -247,7 +247,7 @@ export function setupLocalsMiddleware(app, pool, getCart, logger) {
         res.locals.csrfToken = '';
         res.locals.flash = { success: [], error: [] };
         res.locals.theme = { primary: '#16a34a' };
-        res.locals.cart = { totalQty: 0, totalCents: 0, items: {} };
+        res.locals.cart = { totalQty: 0, totalCents: 0, originalTotalCents: 0, discountCents: 0, items: {} };
         res.locals.settings = { social_media_list: [] };
 
         try {
@@ -326,6 +326,11 @@ export function setupLocalsMiddleware(app, pool, getCart, logger) {
                     res.locals.cart = {
                         totalQty: (cart && typeof cart.totalQty === 'number') ? cart.totalQty : 0,
                         totalCents: (cart && typeof cart.totalCents === 'number') ? cart.totalCents : 0,
+                        originalTotalCents: (cart && typeof cart.originalTotalCents === 'number') ? cart.originalTotalCents : ((cart && typeof cart.totalCents === 'number') ? cart.totalCents : 0),
+                        discountCents: (cart && typeof cart.discountCents === 'number') ? cart.discountCents : 0,
+                        vatPercent: (cart && typeof cart.vatPercent === 'number') ? cart.vatPercent : 0,
+                        vatCents: (cart && typeof cart.vatCents === 'number') ? cart.vatCents : 0,
+                        grandTotalCents: (cart && typeof cart.grandTotalCents === 'number') ? cart.grandTotalCents : ((cart && typeof cart.totalCents === 'number') ? cart.totalCents : 0),
                         items: (cart && cart.items && typeof cart.items === 'object') ? cart.items : {}
                     };
                     if (cart && cart.totalQty > 0) {
@@ -333,12 +338,12 @@ export function setupLocalsMiddleware(app, pool, getCart, logger) {
                     }
                 } catch (cartError) {
                     console.error('Error loading cart in middleware:', cartError);
-                    res.locals.cart = { totalQty: 0, totalCents: 0, items: {} };
+                    res.locals.cart = { totalQty: 0, totalCents: 0, originalTotalCents: 0, discountCents: 0, items: {} };
                 }
             }
         } catch (e) {
             console.error('Error setting cart in locals:', e);
-            res.locals.cart = { totalQty: 0, totalCents: 0, items: {} };
+            res.locals.cart = { totalQty: 0, totalCents: 0, originalTotalCents: 0, discountCents: 0, items: {} };
         }
 
         try {

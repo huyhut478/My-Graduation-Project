@@ -37,8 +37,27 @@ export function setupOrderRoutes(app, {
             );
             const allOrders = allOrdersResult.rows;
 
-            const pendingOrders = allOrders.filter(o => o.status === 'pending');
-            const completedOrders = allOrders.filter(o => ['paid', 'completed', 'cancelled', 'failed'].includes(o.status));
+            // Ensure VAT display values exist even if DB schema doesn't have vat_percent/vat_cents
+            try {
+                const vatPercentStr = await getSetting('vat_percent', '10');
+                const defaultVat = Math.max(0, Math.min(100, parseInt(String(vatPercentStr || '0'), 10) || 0));
+                for (const o of allOrders) {
+                    if (o.vat_percent == null) o.vat_percent = defaultVat;
+                    if (o.vat_cents == null) {
+                        // total_cents in DB represents the final total (including VAT). Compute VAT portion.
+                        o.vat_cents = Math.round((o.total_cents || 0) * o.vat_percent / (100 + o.vat_percent));
+                    }
+                }
+            } catch (e) {
+                // ignore and let templates fallback to 0
+            }
+
+            const pendingOrders = allOrders
+                .filter(o => o.status === 'pending')
+                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            const completedOrders = allOrders
+                .filter(o => ['paid', 'completed', 'cancelled', 'failed'].includes(o.status))
+                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
             const itemsByOrder = {};
             const keysByOrderItem = {};
@@ -155,6 +174,14 @@ export function setupOrderRoutes(app, {
         try {
             const orderId = parseInt(req.params.orderId, 10);
             if (isNaN(orderId)) return res.redirect('/orders');
+
+            // Check OTP verification (same as /orders page)
+            const needsPasswordVerification = !req.session.ordersPasswordVerified;
+            if (needsPasswordVerification) {
+                req.flash('error', 'Bạn cần xác thực OTP để xem keys');
+                return res.redirect('/orders');
+            }
+
             const userId = getUserId(req);
             const orderResult = await pool.query('SELECT * FROM orders WHERE id = $1', [orderId]);
             if (orderResult.rows.length === 0) return res.redirect('/orders');

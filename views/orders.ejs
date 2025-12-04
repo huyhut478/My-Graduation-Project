@@ -183,8 +183,18 @@
           
           <div class="order-footer">
             <div class="order-total">
-              <strong>Tổng cộng:</strong>
-              <span class="total-price"><%= ((o.total_cents || 0)/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) %></span>
+              <% const vatCents = (o.vat_cents != null) ? Number(o.vat_cents) : 0; %>
+              <% const subtotalCents = Math.max(0, (o.total_cents || 0) - vatCents); %>
+              <div style="margin-bottom:6px; color:var(--muted); font-size:14px;">
+                Tạm tính: <strong><%= (subtotalCents/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) %></strong>
+              </div>
+              <div style="margin-bottom:6px; color:var(--muted); font-size:14px;">
+                VAT (<%= (o.vat_percent != null) ? o.vat_percent : 0 %>%): <strong><%= (vatCents/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) %></strong>
+              </div>
+              <div>
+                <strong>Tổng cộng:</strong>
+                <span class="total-price"><%= ((o.total_cents || 0)/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) %></span>
+              </div>
             </div>
             
             <div class="order-actions">

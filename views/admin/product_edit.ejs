@@ -1,6 +1,6 @@
-<div class="admin-product-edit">
+﻿<div class="admin-product-edit">
   <div class="edit-header">
-    <h1>✏️ Sửa sản phẩm</h1>
+    <h1>Sửa sản phẩm</h1>
     <a href="/admin/products" class="btn-back">← Quay lại danh sách</a>
   </div>
 
@@ -20,7 +20,7 @@
     <div class="form-sections">
       <!-- Basic Information Section -->
       <div class="form-section">
-        <h2 class="section-title">📝 Thông tin cơ bản</h2>
+        <h2 class="section-title">Thông tin cơ bản</h2>
         <div class="form-grid">
           <div class="form-group full-width">
             <label for="title">
@@ -70,11 +70,11 @@
 
       <!-- Pricing & Stock Section -->
       <div class="form-section">
-        <h2 class="section-title">💰 Giá cả & Tồn kho</h2>
+        <h2 class="section-title">Giá cả & Tồn kho</h2>
         <div class="form-grid">
           <div class="form-group">
             <label for="price_vnd">
-              <span class="label-text">💰 Giá bán (VND)</span>
+              <span class="label-text">Giá bán (VND)</span>
               <span class="label-required">*</span>
             </label>
             <div class="input-with-icon">
@@ -101,10 +101,10 @@
 
           <div class="form-group">
             <label for="stock">
-              <span class="label-text">📦 Số lượng tồn kho</span>
+              <span class="label-text">Số lượng tồn kho</span>
             </label>
             <div class="input-with-icon">
-              <span class="input-icon">📦</span>
+              <span class="input-icon"></span>
               <input type="number" id="stock" name="stock" 
                      value="<%= product.stock %>" 
                      min="0" step="1" 
@@ -117,7 +117,7 @@
 
       <!-- Media Section -->
       <div class="form-section">
-        <h2 class="section-title">🖼️ Hình ảnh</h2>
+        <h2 class="section-title">Hình ảnh & Download</h2>
         <div class="form-grid">
           <div class="form-group full-width">
             <label for="image">
@@ -133,38 +133,46 @@
               </div>
             <% } %>
           </div>
+
+          <div class="form-group full-width">
+            <label for="download_link">
+              <span class="label-text">Link tải file</span>
+            </label>
+            <input type="url" id="download_link" name="download_link" 
+                   value="<%= product.download_link || '' %>" 
+                   placeholder="https://example.com/file.zip" />
+            <small class="form-hint">Đường dẫn đến file tải (ví dụ: link Google Drive, OneDrive, Mega, ...)</small>
+          </div>
         </div>
       </div>
 
       <!-- Settings Section -->
       <div class="form-section">
-        <h2 class="section-title">⚙️ Cài đặt</h2>
-        <div class="form-grid">
-          <div class="form-group">
-            <label for="active">
-              <span class="label-text">Trạng thái hiển thị</span>
-            </label>
-            <select id="active" name="active">
-              <option value="1" <%= product.active ? 'selected' : '' %>>✅ Hiển thị</option>
-              <option value="0" <%= !product.active ? 'selected' : '' %>>❌ Ẩn</option>
-            </select>
-            <small class="form-hint">Sản phẩm có hiển thị trên website không</small>
-          </div>
+  <h2 class="section-title">⚙️ Cài đặt</h2>
+  <div class="form-grid">
+    <div class="form-group">
+      <label for="active">
+        <span class="label-text">Trạng thái hiển thị</span>
+      </label>
+      <select id="active" name="active">
+        <option value="1" <%= product.active ? 'selected' : '' %>>✅ Hiển thị</option>
+        <option value="0" <%= !product.active ? 'selected' : '' %>>❌ Ẩn</option>
+      </select>
+      <small class="form-hint">Sản phẩm có hiển thị trên website không</small>
+    </div>
 
-          <div class="form-group">
-            <label class="checkbox-label">
-              <input type="checkbox" name="featured" value="1" 
-                     <%= product.featured ? 'checked' : '' %> 
-                     class="checkbox-input" />
-              <span class="checkbox-text">
-                <span class="checkbox-icon">🔥</span>
-                Sản phẩm nổi bật
-              </span>
-            </label>
-            <small class="form-hint">Hiển thị sản phẩm ở trang chủ</small>
-          </div>
-        </div>
-      </div>
+    <div class="form-group">
+      <label for="featured">
+        <span class="label-text">Sản phẩm nổi bật</span>
+      </label>
+      <select id="featured" name="featured">
+        <option value="1" <%= product.featured ? 'selected' : '' %>>🔥 Nổi bật</option>
+        <option value="0" <%= !product.featured ? 'selected' : '' %>>⚪ Bình thường</option>
+      </select>
+      <small class="form-hint">Hiển thị sản phẩm ở trang chủ</small>
+    </div>
+  </div>
+</div>
     </div>
 
     <div class="form-actions">

@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { pool } from '../config/database.js';
+import { getSetting } from './settingsService.js';
 import { logger } from '../config/logger.js';
 
 async function ensureCartsTableExists() {
@@ -124,6 +125,46 @@ async function getCart(req) {
   if (typeof req.session.cart.totalCents !== 'number') {
     req.session.cart.totalCents = 0;
     req.session.touch();
+  }
+
+  // Recalculate totals (including originalTotalCents and discountCents) from the item snapshots
+  try {
+    let runningTotal = 0;
+    let runningOriginalTotal = 0;
+    let runningQty = 0;
+    const items = req.session.cart.items || {};
+    Object.keys(items).forEach(k => {
+      const entry = items[k];
+      const qty = entry.qty || 0;
+      const price = entry.product && typeof entry.product.price_cents === 'number' ? entry.product.price_cents : 0;
+      const orig = entry.product && typeof entry.product.original_price_cents === 'number' ? entry.product.original_price_cents : price;
+      runningTotal += qty * price;
+      runningOriginalTotal += qty * orig;
+      runningQty += qty;
+    });
+
+    req.session.cart.totalCents = runningTotal;
+    req.session.cart.originalTotalCents = runningOriginalTotal;
+    req.session.cart.discountCents = Math.max(0, runningOriginalTotal - runningTotal);
+
+    // Compute VAT and grand total (VAT percent is configurable in settings)
+    try {
+      const vatPercentStr = await getSetting('vat_percent', '10');
+      const vatPercent = Math.max(0, Math.min(100, parseInt(String(vatPercentStr || '0'), 10) || 0));
+      const vatCents = Math.round(req.session.cart.totalCents * vatPercent / 100);
+      req.session.cart.vatPercent = vatPercent;
+      req.session.cart.vatCents = vatCents;
+      req.session.cart.grandTotalCents = req.session.cart.totalCents + vatCents;
+    } catch (e) {
+      req.session.cart.vat_percent = 0;
+      req.session.cart.vat_cents = 0;
+      req.session.cart.grandTotalCents = req.session.cart.totalCents;
+    }
+    req.session.cart.totalQty = runningQty;
+    req.session.touch();
+  } catch (calcErr) {
+    // If anything fails here, keep the session values as-is
+    console.error('Error computing cart totals in service:', calcErr);
   }
 
   return req.session.cart;

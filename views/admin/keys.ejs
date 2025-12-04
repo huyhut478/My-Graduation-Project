@@ -103,23 +103,32 @@
               <div class="key-header-row">
                 <h4>🔑 Key của sản phẩm</h4>
               </div>
-              
-              <% if (product.key_value) { %>
-                <div class="key-display">
-                  <div class="key-row">
-                    <div class="key-info">
-                      <div class="key-preview-wrapper">
-                        <code class="key-value collapsed" data-key-value="<%= product.key_value %>"><%= (product.key_value && product.key_value.length) && product.key_value.length > 28 ? product.key_value.substring(0,28) + '...' : product.key_value %></code>
-                        <button class="btn-toggle-key" type="button" aria-expanded="false" title="Hiển thị toàn bộ key">Hiện</button>
+              <% const keys = (typeof productKeys !== 'undefined' && productKeys[product.id]) ? productKeys[product.id] : []; %>
+
+              <% if (keys && keys.length > 0) { %>
+                <div class="keys-summary">
+                  <span class="keys-count">📦 Tổng <strong><%= keys.length %></strong> key</span>
+                  <button type="button" class="btn-toggle-keys-group" data-product-id="<%= product.id %>" aria-expanded="false">
+                    <span class="toggle-text">Hiển thị 3 key đầu</span>
+                  </button>
+                </div>
+                <div class="key-display" data-product-id="<%= product.id %>">
+                  <% keys.forEach((k, idx) => { %>
+                    <div class="key-row" data-key-id="<%= k.id %>" data-key-idx="<%= idx %>" style="<%= idx >= 3 ? 'display:none;' : '' %>">
+                      <div class="key-info">
+                        <div class="key-preview-wrapper">
+                          <code class="key-value collapsed" data-key-value="<%= k.key_value %>"><%= (k.key_value && k.key_value.length) && k.key_value.length > 28 ? k.key_value.substring(0,28) + '...' : k.key_value %></code>
+                          <button class="btn-toggle-key" type="button" aria-expanded="false" title="Hiển thị toàn bộ key">Hiện</button>
+                        </div>
+                      </div>
+                      <div class="key-actions">
+                        <button class="btn-copy" data-key-value="<%= k.key_value %>" type="button" title="Sao chép">📋</button>
+                        <form action="/admin/products/<%= product.id %>/key/<%= k.id %>/delete?_csrf=<%= csrfToken %>" method="post" style="display:inline;">
+                          <button type="submit" class="btn-delete" title="Xóa key">🗑️</button>
+                        </form>
                       </div>
                     </div>
-                    <div class="key-actions">
-                      <button class="btn-copy" data-key-value="<%= product.key_value %>" type="button" title="Sao chép">📋</button>
-                      <form action="/admin/products/<%= product.id %>/key/delete?_csrf=<%= csrfToken %>" method="post" style="display:inline;" onsubmit="return confirm('Xóa key này?')">
-                        <button type="submit" class="btn-delete" title="Xóa key">🗑️</button>
-                      </form>
-                    </div>
-                  </div>
+                  <% }) %>
                 </div>
               <% } else { %>
                 <div class="no-key-message">
@@ -132,12 +141,12 @@
                   <input
                     type="text"
                     name="key_value"
-                    value="<%= product.key_value || '' %>"
+                    value=""
                     placeholder="Nhập key cho sản phẩm..."
                     class="key-input"
                     data-product-id="<%= product.id %>"
                   />
-                  <button type="submit" class="btn-add" data-product-id="<%= product.id %>"><%= product.key_value ? '✏️ Cập nhật Key' : '➕ Thêm Key' %></button>
+                  <button type="submit" class="btn-add" data-product-id="<%= product.id %>">➕ Thêm Key</button>
                 </div>
               </form>
             </div>
@@ -554,6 +563,53 @@ body > main > .container {
   color: var(--fg);
 }
 
+.keys-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 12px;
+  background: rgba(22, 163, 74, 0.05);
+  border: 1px solid rgba(22, 163, 74, 0.2);
+  border-radius: 6px;
+  flex-wrap: wrap;
+}
+
+.keys-count {
+  font-size: 14px;
+  color: var(--fg);
+  font-weight: 500;
+}
+
+.keys-count strong {
+  color: var(--green);
+  font-weight: 700;
+}
+
+.btn-toggle-keys-group {
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid var(--green);
+  border-radius: 6px;
+  color: var(--green);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-toggle-keys-group:hover {
+  background: var(--green);
+  color: white;
+}
+
+.btn-toggle-keys-group[aria-expanded="true"] {
+  background: var(--green);
+  color: white;
+}
+
 .key-display {
   margin-bottom: 16px;
 }
@@ -821,49 +877,45 @@ document.addEventListener('DOMContentLoaded', function() {
         const data = await response.json();
 
         if (data.success) {
-          // Show success message
+          // Show success state
           button.textContent = '✅ Đã lưu!';
           button.style.background = '#10b981';
-          
-          // Update the displayed key if it exists
+
+          const keyId = data.keyId;
           const keyDisplay = form.closest('.product-key-section').querySelector('.key-display');
           const noKeyMessage = form.closest('.product-key-section').querySelector('.no-key-message');
-          
-          if (keyDisplay) {
-            // Update existing key display
-            const keyCode = keyDisplay.querySelector('.key-value');
-            if (keyCode) {
-              keyCode.textContent = keyValue;
-              keyCode.setAttribute('data-key-value', keyValue);
-            }
-            const copyBtn = keyDisplay.querySelector('.btn-copy');
-            if (copyBtn) {
-              copyBtn.setAttribute('data-key-value', keyValue);
-            }
-          } else if (noKeyMessage) {
-            // Create new key display
-            noKeyMessage.outerHTML = `
-              <div class="key-display">
-                <div class="key-row">
-                  <div class="key-info">
-                    <div class="key-preview-wrapper">
-                      <code class="key-value collapsed" data-key-value="${keyValue}">${keyValue.length > 28 ? keyValue.substring(0,28) + '...' : keyValue}</code>
-                      <button class="btn-toggle-key" type="button" aria-expanded="false" title="Hiển thị toàn bộ key">Hiện</button>
-                    </div>
-                  </div>
-                  <div class="key-actions">
-                    <button class="btn-copy" data-key-value="${keyValue}" type="button" title="Sao chép">📋</button>
-                    <form action="/admin/products/${productId}/key/delete?_csrf=<%= csrfToken %>" method="post" style="display:inline;" onsubmit="return confirm('Xóa key này?')">
-                      <button type="submit" class="btn-delete" title="Xóa key">🗑️</button>
-                    </form>
-                  </div>
+
+          const newKeyRowHTML = `
+            <div class="key-row" data-key-id="${keyId}">
+              <div class="key-info">
+                <div class="key-preview-wrapper">
+                  <code class="key-value collapsed" data-key-value="${keyValue}">${keyValue.length > 28 ? keyValue.substring(0,28) + '...' : keyValue}</code>
+                  <button class="btn-toggle-key" type="button" aria-expanded="false" title="Hiển thị toàn bộ key">Hiện</button>
                 </div>
               </div>
-            `;
-            // Re-attach copy handler
-            const newCopyBtn = form.closest('.product-key-section').querySelector('.btn-copy[data-key-value]');
-            if (newCopyBtn) {
-              newCopyBtn.addEventListener('click', function() {
+              <div class="key-actions">
+                <button class="btn-copy" data-key-value="${keyValue}" type="button" title="Sao chép">📋</button>
+                <form action="/admin/products/${productId}/key/${keyId}/delete?_csrf=<%= csrfToken %>" method="post" style="display:inline;">
+                  <button type="submit" class="btn-delete" title="Xóa key">🗑️</button>
+                </form>
+              </div>
+            </div>
+          `;
+
+          if (keyDisplay) {
+            // append new key row
+            keyDisplay.insertAdjacentHTML('afterbegin', newKeyRowHTML);
+          } else if (noKeyMessage) {
+            noKeyMessage.outerHTML = `<div class="key-display">${newKeyRowHTML}</div>`;
+          }
+
+          // attach handlers for the newly inserted elements
+          const newSection = form.closest('.product-key-section');
+          const insertedRow = newSection.querySelector(`.key-row[data-key-id="${keyId}"]`);
+          if (insertedRow) {
+            const copyBtn = insertedRow.querySelector('.btn-copy');
+            if (copyBtn) {
+              copyBtn.addEventListener('click', function() {
                 const keyVal = this.getAttribute('data-key-value');
                 if (navigator.clipboard && navigator.clipboard.writeText) {
                   navigator.clipboard.writeText(keyVal).then(() => {
@@ -880,10 +932,9 @@ document.addEventListener('DOMContentLoaded', function() {
               });
             }
 
-            // Attach toggle handler for newly inserted element
-            const newToggle = form.closest('.product-key-section').querySelector('.btn-toggle-key');
-            if (newToggle) {
-              newToggle.addEventListener('click', function() {
+            const toggleBtn = insertedRow.querySelector('.btn-toggle-key');
+            if (toggleBtn) {
+              toggleBtn.addEventListener('click', function() {
                 const wrapper = this.closest('.key-preview-wrapper');
                 const code = wrapper?.querySelector('.key-value');
                 if (!code) return;
@@ -901,13 +952,13 @@ document.addEventListener('DOMContentLoaded', function() {
             }
           }
 
-          // Update button text
-          button.textContent = '✏️ Cập nhật Key';
-          
+          // Reset input and button state
+          input.value = '';
           setTimeout(() => {
             button.style.background = '';
             button.disabled = false;
-          }, 2000);
+            button.textContent = '➕ Thêm Key';
+          }, 800);
         } else {
           throw new Error(data.error || 'Có lỗi xảy ra');
         }
@@ -927,23 +978,29 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   // AJAX delete key
-  document.querySelectorAll('form[action*="/key/delete"]').forEach(form => {
-    form.addEventListener('submit', async function(e) {
+  // Delegate delete handlers (supports dynamic rows)
+  document.querySelectorAll('.product-key-section').forEach(section => {
+    section.addEventListener('submit', async function(e) {
+      const form = e.target;
+      if (!form || !form.getAttribute('action') || !form.getAttribute('action').includes('/key/')) return;
       e.preventDefault();
-      
+
       if (!confirm('Xóa key này?')) return;
 
       const actionUrl = form.getAttribute('action');
-      const productId = actionUrl.match(/\/products\/(\d+)\/key\/delete/)[1];
+      const m = actionUrl.match(/\/products\/(\d+)\/key\/(\d+)\/delete/);
+      if (!m) return alert('URL xóa không hợp lệ');
+      const productId = m[1];
+      const keyId = m[2];
+
       const button = form.querySelector('.btn-delete');
-      
       if (button) {
         button.disabled = true;
         button.textContent = '⏳';
       }
 
       try {
-        const response = await fetch(`/admin/products/${productId}/key/delete`, {
+        const response = await fetch(`/admin/products/${productId}/key/${keyId}/delete`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -953,25 +1010,23 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         const data = await response.json();
-
         if (data.success) {
-          // Remove key display
-          const keyDisplay = form.closest('.product-key-section').querySelector('.key-display');
-          if (keyDisplay) {
-            keyDisplay.outerHTML = `
-              <div class="no-key-message">
-                <p>⚠️ Sản phẩm chưa có key</p>
-              </div>
-            `;
+          // remove the specific key row
+          const row = section.querySelector(`.key-row[data-key-id="${keyId}"]`);
+          if (row) row.remove();
+
+          // if no keys left, show no-key-message
+          const remaining = section.querySelectorAll('.key-row');
+          if (!remaining || remaining.length === 0) {
+            const keyDisplay = section.querySelector('.key-display');
+            if (keyDisplay) {
+              keyDisplay.outerHTML = `\n                <div class="no-key-message">\n                  <p>⚠️ Sản phẩm chưa có key</p>\n                </div>\n              `;
+            }
+            const input = section.querySelector('.key-input');
+            if (input) input.value = '';
+            const addButton = section.querySelector('.btn-add');
+            if (addButton) addButton.textContent = '➕ Thêm Key';
           }
-          
-          // Clear input
-          const input = form.closest('.product-key-section').querySelector('.key-input');
-          if (input) input.value = '';
-          
-          // Update button
-          const addButton = form.closest('.product-key-section').querySelector('.btn-add');
-          if (addButton) addButton.textContent = '➕ Thêm Key';
         } else {
           throw new Error(data.error || 'Có lỗi xảy ra');
         }
@@ -1003,6 +1058,36 @@ document.addEventListener('DOMContentLoaded', function() {
         code.classList.remove('collapsed');
         this.setAttribute('aria-expanded', 'true');
         this.textContent = 'Ẩn';
+      }
+    });
+  });
+
+  // Toggle keys group (collapse/expand)
+  document.querySelectorAll('.btn-toggle-keys-group').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      const productId = this.getAttribute('data-product-id');
+      const keyDisplay = document.querySelector(`.key-display[data-product-id="${productId}"]`);
+      if (!keyDisplay) return;
+
+      const isExpanded = this.getAttribute('aria-expanded') === 'true';
+      const allRows = keyDisplay.querySelectorAll('.key-row');
+      const totalKeys = allRows.length;
+
+      if (isExpanded) {
+        // Collapse - show only first 3
+        allRows.forEach((row, idx) => {
+          row.style.display = idx < 3 ? '' : 'none';
+        });
+        this.setAttribute('aria-expanded', 'false');
+        this.querySelector('.toggle-text').textContent = `Hiển thị tất cả (${totalKeys} key)`;
+      } else {
+        // Expand - show all
+        allRows.forEach(row => {
+          row.style.display = '';
+        });
+        this.setAttribute('aria-expanded', 'true');
+        this.querySelector('.toggle-text').textContent = 'Ẩn bớt';
       }
     });
   });

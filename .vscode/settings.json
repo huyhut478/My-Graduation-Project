@@ -21,6 +21,10 @@
   "search.exclude": {
     "**/node_modules": true,
     "**/package-lock.json": true
+  },
+  "js/ts.implicitProjectConfig.checkJs": false,
+  "[ejs] patterns": {
+    "editor.formatOnPaste": false
   }
 }
 

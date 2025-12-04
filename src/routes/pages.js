@@ -1,4 +1,6 @@
 import express from 'express';
+import { uploadReview } from '../config/uploads.js';
+import * as reviewService from '../services/reviewService.js';
 
 const router = express.Router();
 
@@ -414,6 +416,32 @@ export function setupPageRoutes(app, { pool, db, getSetting, logger }) {
                 }
             };
 
+            // Ensure reviews table exists and load reviews for this product
+            try { await reviewService.ensureReviewsTableExists(pool); } catch (e) { /* ignore */ }
+            const reviews = await reviewService.getReviewsByProduct(pool, product.id, { limit: 50 });
+            const reviewsSummary = await reviewService.getReviewSummary(pool, product.id);
+
+            // Determine whether current user purchased this product and whether they've already reviewed
+            const userId = req.session?.user?.id || null;
+            let userHasPurchased = false;
+            let userHasReviewed = false;
+            if (userId) {
+                try {
+                    const purchased = await pool.query(`
+                        SELECT 1 FROM order_items oi JOIN orders o ON o.id = oi.order_id
+                        WHERE oi.product_id = $1 AND o.user_id = $2 AND o.status IN ('paid','completed') LIMIT 1
+                    `, [product.id, userId]);
+                    userHasPurchased = purchased.rowCount > 0;
+                } catch (e) {
+                    userHasPurchased = false;
+                }
+
+                try {
+                    userHasReviewed = await reviewService.hasUserReviewed(pool, product.id, userId);
+                } catch (e) { userHasReviewed = false; }
+            }
+            const userCanReview = !!(userId && userHasPurchased && !userHasReviewed);
+
             // Determine whether this product is favorited by current user
             let isFavorited = false;
             if (req.session && req.session.user && req.session.user.id) {
@@ -430,17 +458,138 @@ export function setupPageRoutes(app, { pool, db, getSetting, logger }) {
                 title: product.title + ' - SafeKeyS',
                 product,
                 category,
+                reviews,
+                reviewsSummary,
                 structuredData,
                 description: product.description || `Mua ${product.title} với giá tốt nhất tại SafeKeyS`,
                 canonical: req.protocol + "://" + req.get('host') + req.originalUrl,
                 ogUrl: req.protocol + "://" + req.get('host') + req.originalUrl,
                 ogImage: product.image || req.protocol + "://" + req.get('host') + "/img/placeholder.jpg",
-                isFavorited
+                isFavorited,
+                userCanReview,
+                userHasPurchased,
+                userHasReviewed
             });
         } catch (error) {
             console.error('Error in product route:', error);
             req.flash('error', 'Có lỗi xảy ra khi tải sản phẩm');
             res.status(500).render('500', { title: 'Lỗi Server - SafeKeyS' });
+        }
+    });
+
+    // Submit a product review (accept images)
+    app.post('/product/:id/review', uploadReview.array('images', 3), async (req, res) => {
+        try {
+            const productId = Number(req.params.id);
+            if (isNaN(productId)) return res.redirect('back');
+
+            await reviewService.ensureReviewsTableExists(pool);
+
+            const rating = Math.max(1, Math.min(5, Number(req.body.rating || 5)));
+            const title = (req.body.title || '').trim();
+            const body = (req.body.body || '').trim();
+            const images = (req.files || []).map(f => `/img/reviews/${f.filename}`);
+
+            const userId = req.session?.user?.id || null;
+            // Must be logged in
+            if (!userId) {
+                req.flash('error', 'Bạn cần đăng nhập và đã mua sản phẩm để gửi đánh giá');
+                return res.redirect('back');
+            }
+
+            let verified = false;
+            if (userId) {
+                try {
+                    const purchased = await pool.query(`
+                      SELECT 1 FROM order_items oi JOIN orders o ON o.id = oi.order_id
+                      WHERE oi.product_id = $1 AND o.user_id = $2 AND o.status IN ('paid','completed') LIMIT 1
+                    `, [productId, userId]);
+                    verified = purchased.rowCount > 0;
+                } catch (e) {
+                    // ignore
+                }
+            }
+
+            if (!verified) {
+                req.flash('error', 'Chỉ những người đã mua sản phẩm mới được gửi đánh giá');
+                return res.redirect('back');
+            }
+
+            // Prevent duplicates
+            const already = await reviewService.hasUserReviewed(pool, productId, userId);
+            if (already) {
+                req.flash('error', 'Bạn chỉ được gửi một đánh giá cho mỗi sản phẩm');
+                return res.redirect('back');
+            }
+
+            const authorName = req.session?.user?.name || req.body.author_name || 'Khách';
+
+            const newReview = await reviewService.addReview(pool, {
+                product_id: productId,
+                user_id: userId,
+                author_name: authorName,
+                rating,
+                title: title || null,
+                body: body || null,
+                images,
+                verified_purchase: verified
+            });
+
+            req.flash('success', 'Cảm ơn — đánh giá của bạn đã được gửi.');
+            const referer = req.get('Referer') || '/';
+            res.redirect(referer);
+        } catch (err) {
+            console.error('Error creating review', err);
+            req.flash('error', 'Không thể gửi đánh giá — vui lòng thử lại');
+            res.redirect('back');
+        }
+    });
+
+    // API: fetch reviews for a product (optionally filter by rating)
+    app.get('/api/products/:productId/reviews', async (req, res) => {
+        try {
+            const productId = Number(req.params.productId);
+            if (isNaN(productId)) return res.status(400).json({ reviews: [] });
+            await reviewService.ensureReviewsTableExists(pool);
+            const rating = req.query.rating ? Number(req.query.rating) : null;
+            const reviews = await reviewService.getReviewsByProduct(pool, productId, { rating });
+            res.json({ reviews });
+        } catch (err) {
+            console.error('Error loading reviews', err);
+            res.status(500).json({ reviews: [] });
+        }
+    });
+
+    // API: vote helpful on a review
+    app.post('/api/reviews/:id/vote', async (req, res) => {
+        try {
+            if (!req.session || !req.session.user || !req.session.user.id) return res.status(401).json({ success: false });
+            const id = Number(req.params.id);
+            if (isNaN(id)) return res.status(400).json({ success: false });
+            const { vote } = req.body || {};
+            if (!['up', 'down'].includes(vote)) return res.status(400).json({ success: false });
+            const updated = await reviewService.incrementHelpful(pool, id, vote);
+            res.json({ success: true, up: updated.helpful_up, down: updated.helpful_down });
+        } catch (err) {
+            console.error('Error voting', err);
+            res.status(500).json({ success: false });
+        }
+    });
+
+    // API: vote up/down helpful
+    app.post('/api/reviews/:id/vote', async (req, res) => {
+        try {
+            if (!req.session || !req.session.user) return res.status(401).json({ success: false, message: 'Authentication required' });
+            const id = Number(req.params.id);
+            if (isNaN(id)) return res.status(400).json({ success: false });
+            const vote = (req.body && req.body.vote) || (req.query && req.query.vote) || null;
+            if (!['up', 'down'].includes(vote)) return res.status(400).json({ success: false, message: 'Invalid vote' });
+
+            const updated = await reviewService.incrementHelpful(pool, id, vote);
+            res.json({ success: true, up: updated.helpful_up, down: updated.helpful_down });
+        } catch (err) {
+            console.error('Error voting review', err);
+            res.status(500).json({ success: false });
         }
     });
 }

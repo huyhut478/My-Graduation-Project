@@ -81,11 +81,19 @@
       <div class="cart-summary">
         <div class="summary-row">
           <span>Tạm tính:</span>
-          <span id="subtotal">0 VND</span>
+            <span id="subtotal"><%= (((cart && cart.originalTotalCents) ? cart.originalTotalCents : cart.totalCents)/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) %></span>
         </div>
+          <div class="summary-row discount">
+            <span>Khuyến mãi:</span>
+            <span id="discount"><%= ((cart && cart.discountCents) ? '-' + (cart.discountCents/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) : '-0 VND') %></span>
+          </div>
+          <div class="summary-row vat">
+            <span>VAT (<%= (cart && cart.vatPercent) ? cart.vatPercent : 0 %>%)</span>
+            <span id="vat"><%= ((cart && cart.vatCents) ? (cart.vatCents/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) : '0 VND') %></span>
+          </div>
         <div class="summary-row total">
           <span><strong>Tổng cộng:</strong></span>
-          <span class="price" id="total">0 VND</span>
+            <span class="price" id="total"><%= (((cart && cart.grandTotalCents) ? cart.grandTotalCents : (cart.totalCents || 0))/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) %></span>
         </div>
       </div>
       
@@ -372,6 +380,8 @@ if (cart && cart.items) {
     if (item && item.product && item.product.id) {
       data[item.product.id] = {
         price: item.product.price_cents || 0,
+        original_price: (item.product.original_price_cents != null) ? item.product.original_price_cents : (item.product.price_cents || 0),
+        discount_percent: item.product.discount_percent || 0,
         qty: item.qty || 0
       };
     }
@@ -380,6 +390,7 @@ if (cart && cart.items) {
 }
 %>
 <script id="cart-data-script" type="application/json"><%- cartDataJson %></script>
+<script id="cart-meta-script" type="application/json"><%- JSON.stringify({ vatPercent: (cart && cart.vatPercent) ? cart.vatPercent : 0, serverGrandTotal: (cart && cart.grandTotalCents) ? cart.grandTotalCents : ((cart && cart.totalCents) ? cart.totalCents : 0) }) %></script>
 <script>
 // Cart data initialization
 const cartDataScript = document.getElementById('cart-data-script');
@@ -469,13 +480,17 @@ function updateSelectedTotal() {
     const selectedCount = checkboxes.length;
     
     let totalCents = 0;
+    let originalTotalCents = 0;
     let totalQty = 0; // Tổng số lượng thực tế
     
     checkboxes.forEach(cb => {
       const productId = parseInt(cb.value);
       if (cartData[productId]) {
         const qty = cartData[productId].qty || 0;
-        totalCents += cartData[productId].price * qty;
+        const price = cartData[productId].price || 0;
+        const original = (cartData[productId].original_price != null) ? cartData[productId].original_price : price;
+        totalCents += price * qty;
+        originalTotalCents += original * qty;
         totalQty += qty; // Cộng số lượng thực tế
       }
     });
@@ -496,9 +511,26 @@ function updateSelectedTotal() {
       style: 'currency',
       currency: 'VND'
     });
+    // Get VAT percent from cart meta
+    const cartMetaScript = document.getElementById('cart-meta-script');
+    const cartMeta = cartMetaScript ? JSON.parse(cartMetaScript.textContent) : { vatPercent: 0 };
+    const vatPercentLocal = Number(cartMeta.vatPercent || 0);
+    const vatCentsLocal = Math.round(totalCents * vatPercentLocal / 100);
+    const formattedVat = (vatCentsLocal / 100).toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
+    const formattedGrand = ((totalCents + vatCentsLocal) / 100).toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
+    const formattedSubtotal = (originalTotalCents / 100).toLocaleString('vi-VN', {
+      style: 'currency',
+      currency: 'VND'
+    });
+    const discountCents = Math.max(0, originalTotalCents - totalCents);
+    const formattedDiscount = '-' + (discountCents / 100).toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
     
-    if (subtotalEl) subtotalEl.textContent = formattedTotal;
-    if (totalEl) totalEl.textContent = formattedTotal;
+    if (subtotalEl) subtotalEl.textContent = formattedSubtotal;
+    if (totalEl) totalEl.textContent = formattedGrand;
+    const discountEl = document.getElementById('discount');
+    if (discountEl) discountEl.textContent = (discountCents > 0) ? formattedDiscount : '-0 VND';
+    const vatEl = document.getElementById('vat');
+    if (vatEl) vatEl.textContent = formattedVat;
     
     // Always enable checkout button if there are items in cart
     // The form submit handler will check if items are selected

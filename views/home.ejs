@@ -121,9 +121,15 @@
                 <% carouselProducts.forEach((p, index) => { %>
                   <div class="carousel-item" data-product-id="<%= p.id %>">
                     <div class="carousel-product-card">
-                      <div class="carousel-img-wrapper">
+                        <div class="carousel-img-wrapper">
                         <a href="/product/<%= p.slug %>" class="carousel-img-link">
                           <img src="<%= p.image || '/img/placeholder.jpg' %>" alt="<%= p.title %>" loading="lazy" decoding="async">
+                          <% if (p.reviewsSummary && p.reviewsSummary.count > 0) { %>
+                            <div class="carousel-rating-pill image-badge">
+                              <strong><%= p.reviewsSummary.avg.toFixed(1) %></strong>
+                              <span class="stars"> <%= '★'.repeat(Math.round(p.reviewsSummary.avg)) %><%= '☆'.repeat(5-Math.round(p.reviewsSummary.avg)) %></span>
+                            </div>
+                          <% } %>
                           <div class="carousel-img-overlay">
                             <span class="view-detail-btn">Xem chi tiết</span>
                           </div>
@@ -137,6 +143,7 @@
                         <h3 class="carousel-product-title">
                           <a href="/product/<%= p.slug %>"><%= p.title %></a>
                         </h3>
+                          <% /* rating pill moved into the image wrapper above (image-badge) */ %>
                         
                         <div class="carousel-product-meta">
                           <div class="carousel-stock-status">
@@ -281,6 +288,12 @@
     <div class="product-card">
       <div class="product-image">
             <img src="<%= p.image || '/img/placeholder.jpg' %>" alt="<%= p.title %>" loading="lazy" decoding="async">
+        <% if (p.reviewsSummary && p.reviewsSummary.count > 0) { %>
+          <div class="home-rating-pill image-badge">
+            <strong><%= p.reviewsSummary.avg.toFixed(1) %></strong>
+            <span class="stars"> <%= '★'.repeat(Math.round(p.reviewsSummary.avg)) %><%= '☆'.repeat(5-Math.round(p.reviewsSummary.avg)) %></span>
+          </div>
+        <% } %>
         <div class="product-overlay">
           <a href="/product/<%= p.slug %>" class="btn quick-view">Xem chi tiết</a>
         </div>
@@ -289,6 +302,7 @@
         <h3 class="product-title">
           <a href="/product/<%= p.slug %>"><%= p.title %></a>
         </h3>
+        <% /* moved rating pill to image top-left so it's visually associated with the product image */ %>
         
         <% if (currentUser && currentUser.role==='admin') { %>
           <div class="admin-actions">
@@ -1295,8 +1309,8 @@
   border-radius: 20px;
   padding: 0;
   position: sticky;
-  top: 20px;
-  max-height: calc(100vh - 40px);
+  top: calc(var(--header-offset) + 12px);
+  max-height: calc(100vh - (var(--header-offset) + 40px));
   overflow-y: auto;
   overflow-x: hidden;
   box-shadow: 
@@ -1357,6 +1371,17 @@
   background: rgba(22, 163, 74, 0.2);
   border-color: var(--green);
   transform: scale(1.05);
+}
+
+@media (max-width: 900px) {
+  .categories-sidebar {
+    position: relative;
+    top: auto;
+    max-height: none;
+    box-shadow: none;
+  }
+  .sidebar-header { position: relative; }
+  .sidebar-toggle { display: inline-flex; }
 }
 
 .categories-list {
@@ -1784,6 +1809,32 @@
   flex-wrap: wrap;
   min-height: 50px;
 }
+
+/* Small rating pill used on homepage product cards */
+.home-rating-pill, .carousel-rating-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: rgba(17,24,39,0.95);
+  font-weight: 700;
+  font-size: 13px;
+}
+.image-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 20;
+  box-shadow: 0 6px 18px rgba(2,6,23,0.35), 0 0 0 2px rgba(255,255,255,0.02) inset;
+}
+
+/* Smaller badge on mobile so it doesn't cover too much of the image */
+@media (max-width: 480px) {
+  .image-badge { top: 8px; left: 8px; padding: 4px 8px; font-size: 12px; }
+}
+.home-rating-pill .stars, .carousel-rating-pill .stars { color: rgba(17,24,39,0.75); font-weight:700; letter-spacing:1px; }
 
 .product-price {
   display: flex;
@@ -2632,13 +2683,21 @@ function updateCartBadge(totalQty) {
 }
 
 // Toggle wishlist via AJAX
-async function toggleWishlist(productId, csrfToken) {
-  const button = document.querySelector(`[data-product-id="${productId}"].wishlist-btn`);
-  if (!button) return;
+async function toggleWishlist(productId, csrfToken, event) {
+  // Prevent default form submission if called from form
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
   
-  // Disable button during request
-  button.disabled = true;
-  button.style.opacity = '0.6';
+  const buttons = document.querySelectorAll(`[data-product-id="${productId}"].wishlist-btn`);
+  if (buttons.length === 0) return;
+  
+  // Disable all matching buttons during request
+  buttons.forEach(button => {
+    button.disabled = true;
+    button.style.opacity = '0.6';
+  });
   
   try {
     const formData = new FormData();
@@ -2653,16 +2712,18 @@ async function toggleWishlist(productId, csrfToken) {
     const data = await response.json();
     
     if (data.success) {
-      // Update button appearance based on action
-      if (data.action === 'added') {
-        button.classList.add('active');
-        button.setAttribute('aria-pressed', 'true');
-        showToast(data.message, 'success');
-      } else {
-        button.classList.remove('active');
-        button.setAttribute('aria-pressed', 'false');
-        showToast(data.message, 'info');
-      }
+      // Update all matching buttons appearance based on action
+      buttons.forEach(button => {
+        if (data.action === 'added') {
+          button.classList.add('active');
+          button.setAttribute('aria-pressed', 'true');
+        } else {
+          button.classList.remove('active');
+          button.setAttribute('aria-pressed', 'false');
+        }
+      });
+      
+      showToast(data.message, data.action === 'added' ? 'success' : 'info');
     } else {
       showToast(data.message, 'error');
     }
@@ -2670,8 +2731,11 @@ async function toggleWishlist(productId, csrfToken) {
     console.error('Error toggling wishlist:', error);
     showToast('Có lỗi xảy ra. Vui lòng thử lại.', 'error');
   } finally {
-    button.disabled = false;
-    button.style.opacity = '1';
+    // Re-enable all buttons
+    buttons.forEach(button => {
+      button.disabled = false;
+      button.style.opacity = '1';
+    });
   }
 }
 
@@ -2854,7 +2918,8 @@ async function applyFilters() {
 document.addEventListener('DOMContentLoaded', function() {
   // Event listeners for add to cart buttons
   document.querySelectorAll('[data-product-id][data-buy-now], .btn-buy-now[data-product-id], .btn-add-cart[data-product-id]').forEach(btn => {
-    btn.addEventListener('click', function() {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
       const productId = parseInt(this.getAttribute('data-product-id'));
       const buyNow = this.getAttribute('data-buy-now') === 'true';
       const csrfToken = this.getAttribute('data-csrf');
@@ -2864,10 +2929,25 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Event listeners for wishlist buttons
   document.querySelectorAll('.wishlist-btn[data-product-id]').forEach(btn => {
-    btn.addEventListener('click', function() {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
       const productId = parseInt(this.getAttribute('data-product-id'));
       const csrfToken = this.getAttribute('data-csrf');
-      toggleWishlist(productId, csrfToken);
+      toggleWishlist(productId, csrfToken, e);
+    });
+  });
+  
+  // Also handle wishlist forms if any exist
+  document.querySelectorAll('.wishlist-form').forEach(form => {
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const btn = this.querySelector('.wishlist-btn');
+      if (btn) {
+        const productId = parseInt(btn.getAttribute('data-product-id'));
+        const csrfToken = btn.getAttribute('data-csrf');
+        toggleWishlist(productId, csrfToken, e);
+      }
     });
   });
   

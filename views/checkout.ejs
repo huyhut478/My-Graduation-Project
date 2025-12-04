@@ -19,7 +19,18 @@
                 <span class="order-item-qty">Số lượng: <%= qty %></span>
               </div>
               <div class="order-item-price">
-                <span class="price"><%= (((product && product.price_cents) ? product.price_cents : 0) * qty / 100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) %></span>
+                <% if (product && product.original_price_cents && product.original_price_cents > product.price_cents) { %>
+                  <% const itemOrigTotal = (product.original_price_cents || 0) * qty;
+                     const itemDiscTotal = (product.price_cents || 0) * qty;
+                  %>
+                  <div class="price-with-discount">
+                    <span class="price-original" style="text-decoration:line-through;color:var(--muted)"><%= (itemOrigTotal/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) %></span>
+                    <span class="price-discounted" style="color:var(--green);margin-left:8px;font-weight:700"><%= (itemDiscTotal/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) %></span>
+                    <span class="discount-pill small">-<%= product.discount_percent || 0 %>%</span>
+                  </div>
+                <% } else { %>
+                  <span class="price"><%= (((product && product.price_cents) ? product.price_cents : 0) * qty / 100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) %></span>
+                <% } %>
               </div>
             </div>
           <% }) %>
@@ -57,18 +68,21 @@
         
         <div class="summary-row">
           <span>Tạm tính:</span>
-          <span><%= ((cart.totalCents || 0)/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) %></span>
+          <span><%= (((cart && cart.originalTotalCents) ? cart.originalTotalCents : (cart.totalCents || 0))/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) %></span>
         </div>
-        
-        
+
         <div class="summary-row discount">
           <span>Khuyến mãi:</span>
-          <span>- 0 VND</span>
+          <span><%= ((cart && cart.discountCents) ? '-' + (cart.discountCents/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) : '-0 VND') %></span>
         </div>
-        
+        <div class="summary-row vat">
+          <span>VAT (<%= (cart && cart.vatPercent) ? cart.vatPercent : 0 %>%)</span>
+          <span><%= ((cart && cart.vatCents) ? (cart.vatCents/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) : '0 VND') %></span>
+        </div>
+
         <div class="summary-row total">
           <span><strong>Tổng cộng:</strong></span>
-          <span class="price"><%= ((cart.totalCents || 0)/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) %></span>
+          <span class="price"><%= (((cart && cart.grandTotalCents) ? cart.grandTotalCents : (cart.totalCents || 0))/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) %></span>
         </div>
         
         <form id="checkout-form" class="checkout-form">
@@ -298,10 +312,15 @@
 </style>
 
 <% 
-// Prepare totalCents value in EJS block
+// Prepare totals in EJS block
 const totalCentsValue = (cart && cart.totalCents) ? cart.totalCents : 0;
+const originalCentsValue = (cart && cart.originalTotalCents) ? cart.originalTotalCents : totalCentsValue;
+const discountCentsValue = (cart && cart.discountCents) ? cart.discountCents : Math.max(0, originalCentsValue - totalCentsValue);
+const vatPercentValue = (cart && typeof cart.vatPercent === 'number') ? cart.vatPercent : 0;
+const vatCentsValue = (cart && typeof cart.vatCents === 'number') ? cart.vatCents : Math.round(totalCentsValue * (vatPercentValue/100));
+const grandTotalValue = (cart && typeof cart.grandTotalCents === 'number') ? cart.grandTotalCents : (totalCentsValue + vatCentsValue);
 %>
-<script id="checkout-data-script" type="application/json"><%- JSON.stringify({ totalCents: totalCentsValue }) %></script>
+<script id="checkout-data-script" type="application/json"><%- JSON.stringify({ totalCents: totalCentsValue, originalTotalCents: originalCentsValue, discountCents: discountCentsValue, vatPercent: vatPercentValue, vatCents: vatCentsValue, grandTotalCents: grandTotalValue }) %></script>
 <script>
 // Handle form submission
 document.addEventListener('DOMContentLoaded', function() {

@@ -534,8 +534,11 @@ router.get('/cart', requireAuth, async (req, res) => {
 
     let totalQty = 0;
     let totalCents = 0;
+    let originalTotalCents = 0;
 
-    const stmt = db.prepare('SELECT stock, price_cents, title, slug, image FROM products WHERE id=? AND active=1');
+    // include discount_percent when fetching fresh product data so we can calculate
+    // effective price and the original price for promotion display
+    const stmt = db.prepare('SELECT stock, price_cents, discount_percent, title, slug, image FROM products WHERE id=? AND active=1');
     for (const key in cart.items) {
       const item = cart.items[key];
       if (!item || !item.product) {
@@ -549,21 +552,54 @@ router.get('/cart', requireAuth, async (req, res) => {
         continue;
       }
 
+      // Compute effective price applying product-level discount if any.
+      const discountPercent = Number(fresh.discount_percent || 0);
+      const effectivePrice = Math.round((fresh.price_cents || 0) * (100 - discountPercent) / 100);
+
       item.product = {
         id: item.product.id,
         title: fresh.title,
         slug: fresh.slug,
         image: fresh.image,
-        price_cents: fresh.price_cents,
+        // store the effective price used for this cart item
+        price_cents: effectivePrice,
+        // keep the original DB price so views can show savings
+        original_price_cents: fresh.price_cents,
+        discount_percent: discountPercent,
         stock: fresh.stock
       };
 
       totalQty += item.qty;
-      totalCents += item.qty * fresh.price_cents;
+      // accumulate totals using the effective price
+      totalCents += item.qty * effectivePrice;
+      // accumulate the original (pre-discount) total so we can compute savings
+      originalTotalCents += item.qty * (fresh.price_cents || 0);
     }
 
     cart.totalQty = totalQty;
     cart.totalCents = totalCents;
+    cart.originalTotalCents = originalTotalCents;
+    cart.discountCents = Math.max(0, originalTotalCents - totalCents);
+
+    // Compute VAT for cart display
+    try {
+      const { getSetting } = await import('../services/settingsService.js');
+      const vatPercentStr = await getSetting('vat_percent', '10');
+      const vatPercent = Math.max(0, Math.min(100, parseInt(String(vatPercentStr || '0'), 10) || 0));
+      const vatCents = Math.round(totalCents * vatPercent / 100);
+      cart.vatPercent = vatPercent;
+      cart.vatCents = vatCents;
+      cart.grandTotalCents = totalCents + vatCents;
+    } catch (e) {
+      cart.vatPercent = 0;
+      cart.vatCents = 0;
+      cart.grandTotalCents = totalCents;
+    }
+
+    // persist the enriched cart back to session (so other routes can use the same structure)
+    if (req.session) {
+      req.session.cart = cart;
+    }
 
     res.render('cart', { title: 'Giỏ hàng - SafeKeyS', cart });
   } catch (error) {

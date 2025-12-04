@@ -1,5 +1,6 @@
 import express from 'express';
 import { pool, db } from '../config/database.js';
+import { getReviewSummary } from '../services/reviewService.js';
 import { getSetting, createExcerpt } from '../services/settingsService.js';
 import { logger } from '../config/logger.js';
 
@@ -36,6 +37,21 @@ router.get('/', async (req, res) => {
       LIMIT 20
     `);
     const featuredProducts = featuredProductsResult.rows;
+
+    // Attach review summaries for featured products (so the template can show ratings)
+    if (featuredProducts && featuredProducts.length && pool) {
+      try {
+        await Promise.all(featuredProducts.map(async p => {
+          try {
+            p.reviewsSummary = await getReviewSummary(pool, p.id);
+          } catch (err) {
+            p.reviewsSummary = { count: 0, avg: 0 };
+          }
+        }));
+      } catch (err) {
+        // ignore review summary failures for featured products
+      }
+    }
 
     let products = [];
     let whereConditions = ['active = 1'];
@@ -86,6 +102,21 @@ router.get('/', async (req, res) => {
 
     const productsResult = params.length > 0 ? await pool.query(query, params) : await pool.query(query);
     products = productsResult.rows;
+
+    // Attach review summaries for list products (main grid)
+    if (products && products.length && pool) {
+      try {
+        await Promise.all(products.map(async p => {
+          try {
+            p.reviewsSummary = await getReviewSummary(pool, p.id);
+          } catch (err) {
+            p.reviewsSummary = { count: 0, avg: 0 };
+          }
+        }));
+      } catch (err) {
+        // ignore summarization failures; render page without ratings if DB unreachable
+      }
+    }
 
     let latestNews = [];
     if (!q && !category && !priceRange) {

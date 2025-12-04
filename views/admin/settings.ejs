@@ -724,6 +724,61 @@
       </form>
     </div>
 
+    <!-- VAT Settings Section -->
+    <div class="settings-section">
+      <div class="settings-section-header">
+        <div>
+          <h2 class="settings-section-title">💰 Cài đặt VAT (Giá trị gia tăng)</h2>
+          <p class="settings-section-description">
+            Quản lý tỷ lệ VAT được áp dụng cho tất cả đơn hàng. Giá trị mặc định: 10%. VAT sẽ tự động được tính trong giỏ hàng và checkout.
+          </p>
+        </div>
+      </div>
+
+      <div class="vat-messages"></div>
+
+      <form id="form-vat" onsubmit="event.preventDefault();">
+        <div class="form-group">
+          <label for="vat_percent">
+            Tỷ lệ VAT (%) <span class="required">*</span>
+          </label>
+          <div style="display: flex; gap: 12px; align-items: center;">
+            <input
+              type="number"
+              id="vat_percent"
+              name="vat_percent"
+              value="<%= settings.vat_percent || '10' %>"
+              min="0"
+              max="100"
+              step="1"
+              placeholder="Nhập tỷ lệ VAT (0-100)"
+              style="max-width: 150px; padding: 12px; font-size: 16px; border: 1px solid var(--border); border-radius: 8px;"
+              required
+            />
+            <span style="font-size: 18px; font-weight: 700; color: var(--green);">%</span>
+            <button type="button" class="btn-save-section" onclick="new VATManager().saveVAT()" id="btn-vat-save">
+              <span>💾 Lưu cài đặt VAT</span>
+            </button>
+          </div>
+          <span class="form-hint">
+            Nhập tỷ lệ VAT từ 0% đến 100%. Ví dụ: 10, 20, 30 (không cần ký tự %)
+          </span>
+        </div>
+
+        <div id="vat-preview"></div>
+
+        <div class="form-group" style="margin-top: 24px; padding: 16px; background: rgba(34, 197, 94, 0.05); border-left: 4px solid var(--green); border-radius: 8px;">
+          <h4 style="margin-top: 0; color: var(--fg);">📌 Thông tin:</h4>
+          <ul style="margin: 12px 0; padding-left: 20px; color: var(--muted); font-size: 14px; line-height: 1.8;">
+            <li>VAT sẽ được tính tự động trên tất cả đơn hàng</li>
+            <li>Áp dụng cho giỏ hàng, trang checkout, và lịch sử đơn hàng</li>
+            <li>Thay đổi sẽ áp dụng ngay cho các đơn hàng mới</li>
+            <li>Công thức: <strong>Tổng cộng = Tạm tính + (Tạm tính × VAT%)</strong></li>
+          </ul>
+        </div>
+      </form>
+    </div>
+
     <!-- Page Content Section -->
     <div class="settings-section">
       <div class="settings-section-header">
@@ -1104,3 +1159,6 @@ document.querySelectorAll('#settings-form input, #settings-form textarea').forEa
   });
 });
 </script>
+
+<!-- Load VAT Manager Script -->
+<script src="/js/vat-manager.js"></script>

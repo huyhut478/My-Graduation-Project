@@ -175,6 +175,29 @@ async function syncToPostgreSQL() {
         }
         console.log(`   ✅ Đã sync ${orderKeys.length} order_keys`);
 
+        // 6.5. Sync product_keys
+        console.log('📦 Đang sync product_keys...');
+        const productKeys = dataManager.readData('product_keys');
+        for (const pk of productKeys) {
+            await client.query(
+                `INSERT INTO product_keys (id, product_id, key_value, created_at, deleted_at)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (id) DO UPDATE SET
+         product_id = EXCLUDED.product_id,
+         key_value = EXCLUDED.key_value,
+         created_at = EXCLUDED.created_at,
+         deleted_at = EXCLUDED.deleted_at`,
+                [
+                    pk.id,
+                    pk.product_id,
+                    pk.key_value,
+                    pk.created_at || new Date().toISOString(),
+                    pk.deleted_at || null
+                ]
+            );
+        }
+        console.log(`   ✅ Đã sync ${productKeys.length} product_keys`);
+
         // 7. Sync wishlist
         console.log('📦 Đang sync wishlist...');
         const wishlist = dataManager.readData('wishlist');

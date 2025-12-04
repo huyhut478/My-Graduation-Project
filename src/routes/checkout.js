@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { db, pool } from '../config/database.js';
 import { logger } from '../config/logger.js';
 import { dataManager } from '../../data/data-manager.js';
+import { getSetting } from '../services/settingsService.js';
 import { getCart, saveCartToDatabase } from './cart.js';
 
 const router = Router();
@@ -45,6 +46,10 @@ router.get('/checkout', requireAuth, async (req, res) => {
 
       if (product && (product.stock ?? 0) > 0) {
         // Create temporary cart for checkout (not saved to session.cart)
+        // Apply discount if present and keep original price so checkout shows promotion
+        const discountPercent = Number(product.discount_percent || 0);
+        const effectivePrice = Math.round((product.price_cents || 0) * (100 - discountPercent) / 100);
+
         const tempCart = {
           items: {
             [String(productId)]: {
@@ -53,18 +58,36 @@ router.get('/checkout', requireAuth, async (req, res) => {
                 title: product.title,
                 slug: product.slug,
                 image: product.image,
-                price_cents: product.price_cents,
+                price_cents: effectivePrice,
+                original_price_cents: product.price_cents,
+                discount_percent: discountPercent,
                 stock: product.stock
               },
               qty: 1
             }
           },
           totalQty: 1,
-          totalCents: product.price_cents
+          totalCents: effectivePrice,
+          originalTotalCents: product.price_cents,
+          discountCents: Math.max(0, product.price_cents - effectivePrice)
         };
 
         // Set selectedItems for this product
         req.session.selectedItems = [String(productId)];
+
+        // Compute VAT for tempCart (use site setting default 10%)
+        try {
+          const vatPercentStrTmp = await getSetting('vat_percent', '10');
+          const vatPercentTmp = Math.max(0, Math.min(100, parseInt(String(vatPercentStrTmp || '0'), 10) || 0));
+          const vatCentsTmp = Math.round(tempCart.totalCents * vatPercentTmp / 100);
+          tempCart.vatPercent = vatPercentTmp;
+          tempCart.vatCents = vatCentsTmp;
+          tempCart.grandTotalCents = tempCart.totalCents + vatCentsTmp;
+        } catch (e) {
+          tempCart.vatPercent = 0;
+          tempCart.vatCents = 0;
+          tempCart.grandTotalCents = tempCart.totalCents;
+        }
 
         // Render checkout with temporary cart
         const insufficient = [];
@@ -98,19 +121,71 @@ router.get('/checkout', requireAuth, async (req, res) => {
 
     if (selectedItems.length > 0) {
       // Only include selected items
-      selectedItems.forEach(productId => {
+      for (const productId of selectedItems) {
         const key = String(productId);
         if (cart.items[key]) {
           filteredCart.items[key] = cart.items[key];
-          filteredCart.totalQty += cart.items[key].qty;
-          filteredCart.totalCents += cart.items[key].qty * cart.items[key].product.price_cents;
+          // Ensure each selected item has a proper effective price/original price snapshot
+          const productEntry = cart.items[key];
+          if (productEntry) {
+            // If product snapshot already contains original_price_cents, trust it; otherwise refresh from DB
+            if (!productEntry.product.original_price_cents) {
+              const pStmt = db.prepare('SELECT price_cents, discount_percent FROM products WHERE id=?');
+              const fresh = await pStmt.get(productEntry.product.id);
+              const dbPrice = fresh ? (fresh.price_cents || 0) : (productEntry.product.price_cents || 0);
+              const discount = fresh ? Number(fresh.discount_percent || 0) : Number(productEntry.product.discount_percent || 0);
+              const effective = Math.round(dbPrice * (100 - discount) / 100);
+              productEntry.product.price_cents = effective;
+              productEntry.product.original_price_cents = dbPrice;
+              productEntry.product.discount_percent = discount;
+            }
+
+            filteredCart.totalQty += productEntry.qty;
+            filteredCart.totalCents += productEntry.qty * productEntry.product.price_cents;
+          }
         }
-      });
+      }
     } else {
       // If no selection, use all items (backward compatibility)
+      // Use all items; ensure we normalize price snapshots and compute totals
+      let runningTotal = 0;
+      let runningOriginalTotal = 0;
+      for (const k of Object.keys(cart.items)) {
+        const entry = cart.items[k];
+        // refresh DB price & discount if snapshot missing original_price_cents
+        if (!entry.product.original_price_cents) {
+          const pStmt = db.prepare('SELECT price_cents, discount_percent FROM products WHERE id=?');
+          const fresh = await pStmt.get(entry.product.id);
+          const dbPrice = fresh ? (fresh.price_cents || 0) : (entry.product.price_cents || 0);
+          const discount = fresh ? Number(fresh.discount_percent || 0) : Number(entry.product.discount_percent || 0);
+          const effective = Math.round(dbPrice * (100 - discount) / 100);
+          entry.product.price_cents = effective;
+          entry.product.original_price_cents = dbPrice;
+          entry.product.discount_percent = discount;
+        }
+
+        runningTotal += entry.qty * entry.product.price_cents;
+        runningOriginalTotal += entry.qty * (entry.product.original_price_cents || entry.product.price_cents);
+      }
       filteredCart.items = cart.items;
       filteredCart.totalQty = cart.totalQty;
-      filteredCart.totalCents = cart.totalCents;
+      filteredCart.totalCents = runningTotal;
+      filteredCart.originalTotalCents = runningOriginalTotal;
+      filteredCart.discountCents = Math.max(0, runningOriginalTotal - runningTotal);
+    }
+
+    // Compute VAT for filteredCart
+    try {
+      const vatPercentStrFC = await getSetting('vat_percent', '10');
+      const vatPercentFC = Math.max(0, Math.min(100, parseInt(String(vatPercentStrFC || '0'), 10) || 0));
+      const vatCentsFC = Math.round(filteredCart.totalCents * vatPercentFC / 100);
+      filteredCart.vatPercent = vatPercentFC;
+      filteredCart.vatCents = vatCentsFC;
+      filteredCart.grandTotalCents = filteredCart.totalCents + vatCentsFC;
+    } catch (e) {
+      filteredCart.vatPercent = 0;
+      filteredCart.vatCents = 0;
+      filteredCart.grandTotalCents = filteredCart.totalCents;
     }
 
     if (filteredCart.totalQty === 0) {
@@ -249,35 +324,48 @@ router.post('/api/momo-callback', async (req, res) => {
                   });
                 }
 
-                // Get product key_value
-                const productResult = await client.query(
-                  'SELECT key_value FROM products WHERE id = $1',
-                  [orderItem.product_id]
+                // Get available product keys from product_keys table (only non-deleted keys)
+                const availableKeysResult = await client.query(
+                  'SELECT id, key_value FROM product_keys WHERE product_id = $1 AND deleted_at IS NULL ORDER BY created_at ASC LIMIT $2',
+                  [orderItem.product_id, orderItem.quantity]
                 );
-                const product = productResult.rows[0];
+                const availableKeys = availableKeysResult.rows || [];
 
-                // If product has key, save to order_keys (one key per quantity)
-                if (product && product.key_value && product.key_value.trim() !== '') {
-                  for (let i = 0; i < orderItem.quantity; i++) {
+                // If product has enough keys, assign them to order_keys and soft delete from product_keys
+                if (availableKeys.length > 0) {
+                  for (let i = 0; i < availableKeys.length; i++) {
+                    const productKey = availableKeys[i];
+                    
+                    // Insert into order_keys
                     const keyInsertResult = await client.query(
                       'INSERT INTO order_keys (order_item_id, key_value) VALUES ($1, $2) RETURNING id',
-                      [orderItem.id, product.key_value.trim()]
+                      [orderItem.id, productKey.key_value]
                     );
                     const keyId = keyInsertResult.rows[0]?.id;
+
+                    // Soft delete from product_keys by setting deleted_at
+                    await client.query(
+                      'UPDATE product_keys SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1',
+                      [productKey.id]
+                    );
 
                     // LƯU ORDER_KEY VÀO FILE TRONG DATA/
                     if (keyId) {
                       dataManager.addItem('order_keys', {
                         id: keyId,
                         order_item_id: orderItem.id,
-                        key_value: product.key_value.trim(),
+                        key_value: productKey.key_value,
                         created_at: new Date().toISOString()
                       });
                     }
                   }
-                  console.log(`🔑 Saved ${orderItem.quantity} key(s) for order_item #${orderItem.id}, product #${orderItem.product_id}`);
+                  console.log(`🔑 Assigned ${availableKeys.length} key(s) for order_item #${orderItem.id}, product #${orderItem.product_id}`);
+                  
+                  if (availableKeys.length < orderItem.quantity) {
+                    console.warn(`⚠️ Product #${orderItem.product_id} has only ${availableKeys.length} available keys but order needs ${orderItem.quantity}`);
+                  }
                 } else {
-                  console.warn(`⚠️ Product #${orderItem.product_id} has no key_value or key is empty`);
+                  console.warn(`⚠️ Product #${orderItem.product_id} has no available keys`);
                 }
               }
 
@@ -378,35 +466,40 @@ router.post('/api/momo-callback', async (req, res) => {
                     });
                   }
 
-                  // Get product key_value
-                  const productResult = await client.query(
-                    'SELECT key_value FROM products WHERE id = $1',
-                    [orderItem.product_id]
+                  // Get available keys from product_keys (non-deleted) and assign them
+                  const availableKeysResult2 = await client.query(
+                    'SELECT id, key_value FROM product_keys WHERE product_id = $1 AND deleted_at IS NULL ORDER BY created_at ASC LIMIT $2',
+                    [orderItem.product_id, orderItem.quantity]
                   );
-                  const product = productResult.rows[0];
+                  const availableKeys2 = availableKeysResult2.rows || [];
 
-                  // If product has key, save to order_keys (one key per quantity)
-                  if (product && product.key_value && product.key_value.trim() !== '') {
-                    for (let i = 0; i < orderItem.quantity; i++) {
+                  if (availableKeys2.length > 0) {
+                    for (const pk of availableKeys2) {
                       const keyInsertResult = await client.query(
                         'INSERT INTO order_keys (order_item_id, key_value) VALUES ($1, $2) RETURNING id',
-                        [orderItem.id, product.key_value.trim()]
+                        [orderItem.id, pk.key_value]
                       );
                       const keyId = keyInsertResult.rows[0]?.id;
+
+                      // Soft delete assigned product key
+                      await client.query('UPDATE product_keys SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1', [pk.id]);
 
                       // LƯU ORDER_KEY VÀO FILE TRONG DATA/
                       if (keyId) {
                         dataManager.addItem('order_keys', {
                           id: keyId,
                           order_item_id: orderItem.id,
-                          key_value: product.key_value.trim(),
+                          key_value: pk.key_value,
                           created_at: new Date().toISOString()
                         });
                       }
                     }
-                    console.log(`🔑 Saved ${orderItem.quantity} key(s) for order_item #${orderItem.id}, product #${orderItem.product_id}`);
+                    console.log(`🔑 Assigned ${availableKeys2.length} key(s) for order_item #${orderItem.id}, product #${orderItem.product_id}`);
+                    if (availableKeys2.length < orderItem.quantity) {
+                      console.warn(`⚠️ Product #${orderItem.product_id} has only ${availableKeys2.length} available keys but order needs ${orderItem.quantity}`);
+                    }
                   } else {
-                    console.warn(`⚠️ Product #${orderItem.product_id} has no key_value or key is empty`);
+                    console.warn(`⚠️ Product #${orderItem.product_id} has no available keys`);
                   }
                 }
 
@@ -530,35 +623,40 @@ router.get('/checkout/momo-success', requireAuth, async (req, res) => {
                   });
                 }
 
-                // Get product key_value
-                const productResult = await client.query(
-                  'SELECT key_value FROM products WHERE id = $1',
-                  [orderItem.product_id]
+                // Get available keys from product_keys (non-deleted) and assign them
+                const availableKeysResult = await client.query(
+                  'SELECT id, key_value FROM product_keys WHERE product_id = $1 AND deleted_at IS NULL ORDER BY created_at ASC LIMIT $2',
+                  [orderItem.product_id, orderItem.quantity]
                 );
-                const product = productResult.rows[0];
+                const availableKeys = availableKeysResult.rows || [];
 
-                // If product has key, save to order_keys (one key per quantity)
-                if (product && product.key_value && product.key_value.trim() !== '') {
-                  for (let i = 0; i < orderItem.quantity; i++) {
+                if (availableKeys.length > 0) {
+                  for (const pk of availableKeys) {
                     const keyInsertResult = await client.query(
                       'INSERT INTO order_keys (order_item_id, key_value) VALUES ($1, $2) RETURNING id',
-                      [orderItem.id, product.key_value.trim()]
+                      [orderItem.id, pk.key_value]
                     );
                     const keyId = keyInsertResult.rows[0]?.id;
 
-                    // LƯU ORDER_KEY VÀO FILE TRONG DATA/
+                    // Soft delete assigned product key
+                    await client.query('UPDATE product_keys SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1', [pk.id]);
+
+                    // Save to data files
                     if (keyId) {
                       dataManager.addItem('order_keys', {
                         id: keyId,
                         order_item_id: orderItem.id,
-                        key_value: product.key_value.trim(),
+                        key_value: pk.key_value,
                         created_at: new Date().toISOString()
                       });
                     }
                   }
-                  console.log(`🔑 Saved ${orderItem.quantity} key(s) for order_item #${orderItem.id}, product #${orderItem.product_id}`);
+                  console.log(`🔑 Assigned ${availableKeys.length} key(s) for order_item #${orderItem.id}, product #${orderItem.product_id}`);
+                  if (availableKeys.length < orderItem.quantity) {
+                    console.warn(`⚠️ Product #${orderItem.product_id} has only ${availableKeys.length} available keys but order needs ${orderItem.quantity}`);
+                  }
                 } else {
-                  console.warn(`⚠️ Product #${orderItem.product_id} has no key_value or key is empty`);
+                  console.warn(`⚠️ Product #${orderItem.product_id} has no available keys`);
                 }
               }
 
@@ -654,14 +752,38 @@ router.post('/checkout/momo', requireAuth, async (req, res) => {
   let hasItemsInCart = false;
 
   if (selectedItems.length > 0) {
-    selectedItems.forEach(productId => {
+    // Normalize selected items from cart: ensure price snapshots exist and reflect discounts
+    const pStmt = db.prepare('SELECT price_cents, discount_percent FROM products WHERE id=?');
+    for (const productId of selectedItems) {
       const key = String(productId);
       if (cart.items && cart.items[key]) {
-        itemsToProcess[key] = cart.items[key];
-        totalCents += cart.items[key].qty * cart.items[key].product.price_cents;
-        hasItemsInCart = true;
+        // ensure snapshot has original_price_cents and effective price
+        const entry = cart.items[key];
+        if (entry && entry.product) {
+          if (!entry.product.original_price_cents) {
+            try {
+              const fresh = await pStmt.get(entry.product.id);
+              const dbPrice = fresh ? (fresh.price_cents || 0) : (entry.product.price_cents || 0);
+              const discount = fresh ? Number(fresh.discount_percent || 0) : Number(entry.product.discount_percent || 0);
+              const effective = Math.round(dbPrice * (100 - discount) / 100);
+              entry.product.price_cents = effective;
+              entry.product.original_price_cents = dbPrice;
+              entry.product.discount_percent = discount;
+              // persist back to session
+              if (req.session && req.session.cart && req.session.cart.items && req.session.cart.items[key]) {
+                req.session.cart.items[key] = entry;
+                req.session.touch && req.session.touch();
+              }
+            } catch (err) {
+              console.error('Error normalizing cart item for checkout/momo:', err);
+            }
+          }
+          itemsToProcess[key] = entry;
+          totalCents += (entry.qty || 0) * (entry.product.price_cents || 0);
+          hasItemsInCart = true;
+        }
       }
-    });
+    }
   }
 
   // If not in cart (buy_now case), fetch product directly from database
@@ -671,18 +793,25 @@ router.post('/checkout/momo', requireAuth, async (req, res) => {
       const product = await stmt.get(productId);
       if (product && (product.stock ?? 0) > 0) {
         const key = String(productId);
+        // apply product-level discount for buy-now flow so totals match checkout page
+        const dbPrice = product.price_cents || 0;
+        const discountPercent = Number(product.discount_percent || 0);
+        const effectivePrice = Math.round(dbPrice * (100 - discountPercent) / 100);
+
         itemsToProcess[key] = {
           product: {
             id: product.id,
             title: product.title,
             slug: product.slug,
             image: product.image,
-            price_cents: product.price_cents,
+            price_cents: effectivePrice,
+            original_price_cents: dbPrice,
+            discount_percent: discountPercent,
             stock: product.stock
           },
           qty: 1
         };
-        totalCents += product.price_cents;
+        totalCents += effectivePrice;
       }
     }
   }
@@ -715,13 +844,21 @@ router.post('/checkout/momo', requireAuth, async (req, res) => {
 
   try {
     const userId = getUserId(req);
-    console.log('🛒 Creating order for user:', userId, 'Total:', totalCents);
+    console.log('🛒 Creating order for user:', userId, 'Total (cents):', totalCents, 'Items:', Object.keys(itemsToProcess).length);
+    // Apply VAT (percent) to totalCents to compute finalTotal
+    const vatPercentStr = await getSetting('vat_percent', '10');
+    const vatPercent = Math.max(0, Math.min(100, parseInt(String(vatPercentStr || '0'), 10) || 0));
+    const vatCents = Math.round(totalCents * vatPercent / 100);
+    const finalTotalCents = totalCents + vatCents;
+    // Debug: log cart summary
+    try { console.log('🧾 Session cart totals:', req.session?.cart?.totalCents, 'original:', req.session?.cart?.originalTotalCents, 'discount:', req.session?.cart?.discountCents); } catch (e) { }
 
     // Create order with pending status
     // Use direct pool.query for RETURNING id to ensure we get the ID correctly
+    // NOTE: we compute VAT for totals but do not store vat_percent/vat_cents in the DB schema
     const orderQuery = await pool.query(
       'INSERT INTO orders (user_id, total_cents, status, payment_method) VALUES ($1, $2, $3, $4) RETURNING id',
-      [userId, totalCents, 'pending', 'momo']
+      [userId, finalTotalCents, 'pending', 'momo']
     );
     const orderId = orderQuery.rows[0]?.id;
 
@@ -744,7 +881,9 @@ router.post('/checkout/momo', requireAuth, async (req, res) => {
     const newOrder = {
       id: orderId,
       user_id: userId,
-      total_cents: totalCents,
+      total_cents: finalTotalCents,
+      vat_percent: vatPercent,
+      vat_cents: vatCents,
       status: 'pending',
       payment_method: 'momo',
       payment_trans_id: null,
@@ -784,7 +923,7 @@ router.post('/checkout/momo', requireAuth, async (req, res) => {
 
     // Create MoMo payment request
     // MoMo API requires amount in VND, but we store in cents, so convert
-    const amountVND = Math.round(totalCents / 100);
+    const amountVND = Math.round(finalTotalCents / 100);
     const momoOrderId = MOMO_PARTNER_CODE + orderId;
     const requestId = momoOrderId;
     const orderInfo = `Thanh toán đơn hàng SafeKeyS #${orderId}`;
@@ -904,14 +1043,37 @@ router.post('/checkout/pay', requireAuth, async (req, res) => {
     let totalCents = 0;
 
     if (selectedItems.length > 0) {
-      // Only process selected items
-      selectedItems.forEach(productId => {
+      // Only process selected items; if an item isn't in cart (buy_now), fetch from DB and apply discount
+      const stmt = db.prepare('SELECT * FROM products WHERE id = ? AND active=1');
+      for (const productId of selectedItems) {
         const key = String(productId);
-        if (cart.items[key]) {
+        if (cart.items && cart.items[key]) {
           itemsToProcess[key] = cart.items[key];
           totalCents += cart.items[key].qty * cart.items[key].product.price_cents;
+        } else {
+          // buy_now fallback: fetch product and apply discount snapshot
+          const product = await stmt.get(productId);
+          if (product && (product.stock ?? 0) > 0) {
+            const dbPrice = product.price_cents || 0;
+            const discountPercent = Number(product.discount_percent || 0);
+            const effectivePrice = Math.round(dbPrice * (100 - discountPercent) / 100);
+            itemsToProcess[key] = {
+              product: {
+                id: product.id,
+                title: product.title,
+                slug: product.slug,
+                image: product.image,
+                price_cents: effectivePrice,
+                original_price_cents: dbPrice,
+                discount_percent: discountPercent,
+                stock: product.stock
+              },
+              qty: 1
+            };
+            totalCents += effectivePrice;
+          }
         }
-      });
+      }
     } else {
       // If no selection, use all items (backward compatibility)
       itemsToProcess = cart.items;
@@ -949,9 +1111,15 @@ router.post('/checkout/pay', requireAuth, async (req, res) => {
     }
 
     const orderId = await db.transaction(async (client) => {
+      // compute VAT for mock payment orders
+      const vatPercentStr = await getSetting('vat_percent', '10');
+      const vatPercent = Math.max(0, Math.min(100, parseInt(String(vatPercentStr || '0'), 10) || 0));
+      const vatCents = Math.round(totalCents * vatPercent / 100);
+      const finalTotal = totalCents + vatCents;
+
       const orderRes = await client.query(
         'INSERT INTO orders (user_id, total_cents, status, payment_method) VALUES ($1, $2, $3, $4) RETURNING id',
-        [getUserId(req), totalCents, 'paid', 'mock']
+        [getUserId(req), finalTotal, 'paid', 'mock']
       );
       const orderId = orderRes.rows[0]?.id;
 
@@ -963,7 +1131,9 @@ router.post('/checkout/pay', requireAuth, async (req, res) => {
       const newOrder = {
         id: orderId,
         user_id: getUserId(req),
-        total_cents: totalCents,
+        total_cents: finalTotal,
+        vat_percent: vatPercent,
+        vat_cents: vatCents,
         status: 'paid',
         payment_method: 'mock',
         payment_trans_id: null,
@@ -974,8 +1144,6 @@ router.post('/checkout/pay', requireAuth, async (req, res) => {
 
       const insertItem = db.prepare('INSERT INTO order_items (order_id, product_id, quantity, price_cents) VALUES (?, ?, ?, ?)');
       const decStock = db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?');
-      const getProduct = db.prepare('SELECT key_value FROM products WHERE id = ?');
-      const insertKey = db.prepare('INSERT INTO order_keys (order_item_id, key_value) VALUES (?, ?)');
 
       for (const entry of Object.values(itemsToProcess)) {
         if (entry && entry.product && entry.qty) {
@@ -1007,23 +1175,36 @@ router.post('/checkout/pay', requireAuth, async (req, res) => {
             });
           }
 
-          // Get product key and save to order_keys
+          // Get available keys from product_keys and assign them to order
           if (orderItemId) {
-            const product = await getProduct.get(entry.product.id);
-            if (product && product.key_value) {
-              // Save one key per quantity
-              for (let i = 0; i < entry.qty; i++) {
-                await insertKey.run(orderItemId, product.key_value);
+            const pkRes = await client.query(
+              'SELECT id, key_value FROM product_keys WHERE product_id = $1 AND deleted_at IS NULL ORDER BY created_at ASC LIMIT $2',
+              [entry.product.id, entry.qty]
+            );
+            const pks = pkRes.rows || [];
+            if (pks.length > 0) {
+              for (const pk of pks) {
+                const keyInsert = await client.query(
+                  'INSERT INTO order_keys (order_item_id, key_value) VALUES ($1, $2) RETURNING id',
+                  [orderItemId, pk.key_value]
+                );
+                const newKeyId = keyInsert.rows[0]?.id || null;
+
+                // Soft delete product key
+                await client.query('UPDATE product_keys SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1', [pk.id]);
 
                 // LƯU ORDER_KEY VÀO FILE
                 dataManager.addItem('order_keys', {
-                  id: null,
+                  id: newKeyId,
                   order_item_id: orderItemId,
-                  key_value: product.key_value,
+                  key_value: pk.key_value,
                   created_at: new Date().toISOString()
                 });
               }
-              console.log(`🔑 Saved ${entry.qty} key(s) for order_item #${orderItemId}`);
+              console.log(`🔑 Assigned ${pks.length} key(s) for order_item #${orderItemId}`);
+              if (pks.length < entry.qty) console.warn(`⚠️ Product #${entry.product.id} has only ${pks.length} available keys but order needs ${entry.qty}`);
+            } else {
+              console.warn(`⚠️ Product #${entry.product.id} has no available keys`);
             }
           }
         }

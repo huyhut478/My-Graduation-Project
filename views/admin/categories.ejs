@@ -1,8 +1,8 @@
 <div class="admin-categories">
-  <h1>📁 Quản lý danh mục</h1>
+  <h1>Quản lý danh mục</h1>
   
   <div class="category-form-card">
-    <h2>➕ Thêm danh mục mới</h2>
+    <h2>Thêm danh mục mới</h2>
     <form action="/admin/categories?_csrf=<%= csrfToken %>" method="post" class="category-form">
       <div class="form-row">
         <div class="form-group">
@@ -17,7 +17,7 @@
       </div>
       <div class="form-actions">
         <button type="submit" class="btn primary large">
-          <span>➕</span>
+          <span></span>
           Thêm danh mục
         </button>
         <button type="reset" class="btn secondary">
@@ -29,7 +29,7 @@
   </div>
   
   <div class="categories-list-card">
-    <h2>📋 Danh sách danh mục</h2>
+    <h2>Danh sách danh mục</h2>
     <% if (!categories || categories.length === 0) { %>
       <p class="muted">Chưa có danh mục nào. Hãy thêm danh mục đầu tiên!</p>
     <% } else { %>

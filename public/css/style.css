@@ -88,8 +88,8 @@ a:hover {
 /* Header with glassmorphism */
 header {
   border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
+  /* make header part of normal document flow so it scrolls away naturally */
+  position: static;
   background: rgba(10, 10, 10, 0.95);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
@@ -98,9 +98,66 @@ header {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
+/* Pinned header (fixed at top) */
+header.header-pinned {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1100;
+  box-shadow: 0 6px 30px rgba(0,0,0,0.25);
+  transform: translateZ(0);
+}
+
+/* header is now in normal flow; remove auto-hide transform behaviour */
+
 @media (max-width: 620px) {
   header {
     box-shadow: 0 1px 5px rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* For sticky layout we reserve the header height for offsets. Adjust as needed */
+:root { --header-offset: 0px; }
+
+/* Header pin/unpin button styles */
+.header-pin-btn {
+  /* Large, rounded floating control for header pin/unpin — always visible */
+  position: fixed;
+  right: 20px;
+  /* Fixed viewport control: always anchored to the viewport (bottom-right). Not positioned relative to the header. */
+  bottom: 20px;
+  z-index: 1400;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px; /* circular */
+  font-weight: 700;
+  font-size: 14px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+  color: var(--fg);
+  border: 1px solid rgba(255,255,255,0.06);
+  transition: transform 200ms ease, background 160ms ease, box-shadow 160ms ease;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 22px rgba(0,0,0,0.14);
+}
+.header-pin-btn:hover { transform: translateY(-6px); background: rgba(255,255,255,0.08); box-shadow: 0 12px 30px rgba(0,0,0,0.18); }
+.header-pin-btn:focus { outline: none; box-shadow: 0 16px 40px rgba(0,0,0,0.28), 0 0 0 4px rgba(34,197,94,0.12); }
+.header-pin-btn.active { background: linear-gradient(135deg,#0b1220,#071018); color: #fff; border-color: rgba(255,255,255,0.1); box-shadow: 0 16px 48px rgba(0,0,0,0.32); transform: translateY(-4px); }
+
+/* Make sure header internal elements allow absolute positioning for the button */
+header { position: relative; }
+
+/* Small screens: reduce pin button size and inset margin so it doesn't overlap other UI */
+@media (max-width: 900px) {
+  .header-pin-btn {
+    right: 12px;
+    bottom: 12px;
+    width: 40px;
+    height: 40px;
   }
 }
 
@@ -489,6 +546,39 @@ body, .btn, .form-input, .form-textarea, .settings-dropdown {
   overflow: hidden;
   white-space: nowrap;
 }
+
+/* Ensure the header-pin button keeps its fixed viewport positioning and custom sizing
+   (override .btn defaults that appear later in the cascade). */
+.btn.header-pin-btn,
+.header-pin-btn {
+  position: fixed; /* fixed to viewport */
+  right: 20px;
+  bottom: 20px;
+  z-index: 1400;
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px; /* slightly pill-shaped for better touch targets */
+  font-weight: 700;
+  font-size: 16px;
+  /* Use a high-contrast, recognizable green background with clear white icon */
+  background: linear-gradient(180deg, var(--green), #15803d);
+  color: white; /* icon uses currentColor so will be white */
+  border: none;
+  transition: transform 160ms cubic-bezier(.2,.9,.2,1), box-shadow 160ms ease, opacity 160ms ease;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 8px 28px rgba(16, 185, 129, 0.18);
+  opacity: 0.98;
+}
+
+/* Improved hover / press / focus states for clarity and accessibility */
+.btn.header-pin-btn:hover { transform: translateY(-4px) scale(1.03); box-shadow: 0 18px 44px rgba(16, 185, 129, 0.22); opacity: 1; }
+.btn.header-pin-btn:active { transform: translateY(0) scale(0.98); box-shadow: 0 10px 30px rgba(0,0,0,0.18); }
+.btn.header-pin-btn:focus { outline: none; box-shadow: 0 24px 56px rgba(16, 185, 129, 0.28), 0 0 0 6px rgba(16,185,129,0.08); }
+.btn.header-pin-btn.active { background: linear-gradient(135deg,#10b981,#059669); color: #fff; box-shadow: 0 20px 56px rgba(16, 185, 129, 0.32); transform: translateY(-3px) scale(1.02); }
 
 .btn::before {
   content: '';

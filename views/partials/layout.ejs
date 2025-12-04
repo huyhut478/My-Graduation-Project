@@ -158,7 +158,7 @@
           
           <% if (typeof currentUser !== 'undefined' && currentUser) { %>
             <div class="user-info">
-              <% if (currentUser.role === 'admin') { %>
+                <% if (currentUser.role === 'admin') { %>
                 <div class="admin-menu">
                   <a href="/admin" class="btn admin">Admin</a>
                   <a href="/admin/products" class="btn admin">Sản phẩm</a>
@@ -166,8 +166,9 @@
                   <a href="/admin/orders" class="btn admin">Lịch sử giao dịch</a>
                   <a href="/admin/news" class="btn admin">Tin tức</a>
                   <a href="/admin/settings" class="btn admin">Cài đặt</a>
+                            <!-- Pin / unpin header button: removed from header to avoid being clipped; rendered later in page -->
                 </div>
-              <% } %>
+                <% } %>
             </div>
           <% } %>
         </div>
@@ -212,6 +213,10 @@
       </div>
     </footer>
     
+ 
+      <!-- Floating pin/unpin button — kept outside <header> so it's fixed to viewport and not clipped by filters -->
+      <button id="header-pin-btn" class="btn header-pin-btn" aria-pressed="false" title="Ghim / Bỏ ghim đầu trang">v</button>
+
     <script src="/js/site.js"></script>
   </body>
   </html>

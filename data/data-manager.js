@@ -23,7 +23,7 @@ function runAsync(fn) {
 async function initFromDB() {
     try {
         // Load arrays
-        const tables = ['users', 'products', 'orders', 'order_items', 'order_keys', 'categories', 'wishlist', 'news'];
+        const tables = ['users', 'products', 'orders', 'order_items', 'order_keys', 'product_keys', 'categories', 'wishlist', 'news'];
         for (const t of tables) {
             try {
                 const res = await pool.query(`SELECT * FROM ${t} ORDER BY id`);
@@ -298,6 +298,15 @@ export async function syncFromPostgreSQL(pool) {
         const orderKeysResult = await pool.query('SELECT * FROM order_keys ORDER BY id');
         writeData('order_keys', orderKeysResult.rows);
         console.log(`✅ Đã sync ${orderKeysResult.rows.length} order_keys`);
+
+        // Sync product_keys
+        try {
+            const productKeysResult = await pool.query('SELECT * FROM product_keys ORDER BY id');
+            writeData('product_keys', productKeysResult.rows);
+            console.log(`✅ Đã sync ${productKeysResult.rows.length} product_keys`);
+        } catch (e) {
+            console.warn('data-manager: failed to sync product_keys:', e.message || e);
+        }
 
         // Sync categories
         const categoriesResult = await pool.query('SELECT * FROM categories ORDER BY id');

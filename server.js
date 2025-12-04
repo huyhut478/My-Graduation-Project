@@ -22,6 +22,8 @@ import multer from 'multer';
 import crypto from 'crypto';
 import https from 'https';
 import * as dataManager from './data/data-manager.js';
+import { uploadReview } from './src/config/uploads.js';
+import * as reviewService from './src/services/reviewService.js';
 import authRouter from './src/routes/auth.js';
 import cartRouter from './src/routes/cart.js';
 import checkoutRouter from './src/routes/checkout.js';
@@ -675,7 +677,7 @@ app.use(async (req, res, next) => {
   res.locals.csrfToken = '';
   res.locals.flash = { success: [], error: [] };
   res.locals.theme = { primary: '#16a34a' };
-  res.locals.cart = { totalQty: 0, totalCents: 0, items: {} };
+  res.locals.cart = { totalQty: 0, totalCents: 0, originalTotalCents: 0, discountCents: 0, items: {} };
   res.locals.settings = { social_media_list: [] };
 
   try {
@@ -762,7 +764,7 @@ app.use(async (req, res, next) => {
     try {
       // Ensure session exists and is loaded
       if (!req.session) {
-        res.locals.cart = { totalQty: 0, totalCents: 0, items: {} };
+        res.locals.cart = { totalQty: 0, totalCents: 0, originalTotalCents: 0, discountCents: 0, vatPercent: 0, vatCents: 0, grandTotalCents: 0, items: {} };
       } else {
         // Force reload cart from database/session to ensure it's up to date
         try {
@@ -770,6 +772,8 @@ app.use(async (req, res, next) => {
           res.locals.cart = {
             totalQty: (cart && typeof cart.totalQty === 'number') ? cart.totalQty : 0,
             totalCents: (cart && typeof cart.totalCents === 'number') ? cart.totalCents : 0,
+            originalTotalCents: (cart && typeof cart.originalTotalCents === 'number') ? cart.originalTotalCents : ((cart && typeof cart.totalCents === 'number') ? cart.totalCents : 0),
+            discountCents: (cart && typeof cart.discountCents === 'number') ? cart.discountCents : 0,
             items: (cart && cart.items && typeof cart.items === 'object') ? cart.items : {}
           };
           // Debug: log cart state
@@ -778,16 +782,16 @@ app.use(async (req, res, next) => {
           }
         } catch (cartError) {
           console.error('Error loading cart in middleware:', cartError);
-          res.locals.cart = { totalQty: 0, totalCents: 0, items: {} };
+          res.locals.cart = { totalQty: 0, totalCents: 0, originalTotalCents: 0, discountCents: 0, vatPercent: 0, vatCents: 0, grandTotalCents: 0, items: {} };
         }
       }
     } catch (err) {
       console.error('Cart error:', err);
-      res.locals.cart = { totalQty: 0, totalCents: 0, items: {} };
+      res.locals.cart = { totalQty: 0, totalCents: 0, originalTotalCents: 0, discountCents: 0, vatPercent: 0, vatCents: 0, grandTotalCents: 0, items: {} };
     }
   } catch (e) {
     console.error('Error setting cart in locals:', e);
-    res.locals.cart = { totalQty: 0, totalCents: 0, items: {} };
+    res.locals.cart = { totalQty: 0, totalCents: 0, originalTotalCents: 0, discountCents: 0, vatPercent: 0, vatCents: 0, grandTotalCents: 0, items: {} };
   }
 
   // expose settings used in footer icons - use getSetting() for consistency
@@ -1030,6 +1034,21 @@ app.get('/', async (req, res) => {
     `);
     const featuredProducts = featuredProductsResult.rows;
 
+    // Attach reviews summary to featured products so the template can render rating pills
+    if (featuredProducts && featuredProducts.length) {
+      try {
+        await Promise.all(featuredProducts.map(async (p) => {
+          try {
+            p.reviewsSummary = await reviewService.getReviewSummary(pool, p.id);
+          } catch (e) {
+            p.reviewsSummary = { count: 0, avg: 0 };
+          }
+        }));
+      } catch (e) {
+        console.warn('Could not attach reviewsSummary to featuredProducts', e);
+      }
+    }
+
     // Get products using PostgreSQL
     let products = [];
     let whereConditions = ['active = 1'];
@@ -1102,6 +1121,21 @@ app.get('/', async (req, res) => {
       ? await pool.query(query, params)
       : await pool.query(query);
     products = productsResult.rows;
+
+    // Attach reviews summary to each product for the products grid
+    if (products && products.length) {
+      try {
+        await Promise.all(products.map(async (p) => {
+          try {
+            p.reviewsSummary = await reviewService.getReviewSummary(pool, p.id);
+          } catch (e) {
+            p.reviewsSummary = { count: 0, avg: 0 };
+          }
+        }));
+      } catch (e) {
+        console.warn('Could not attach reviewsSummary to products list', e);
+      }
+    }
 
     // Get latest news for homepage (only when not searching/filtering)
     let latestNews = [];
@@ -1247,6 +1281,21 @@ app.get('/api/products/filter', async (req, res) => {
     const stmt1 = db.prepare(query);
     products = await stmt1.all(...params);
 
+    // Attach review summaries for filtered products (so AJAX results can include ratings)
+    if (products && products.length && pool) {
+      try {
+        await Promise.all(products.map(async (p) => {
+          try {
+            p.reviewsSummary = await reviewService.getReviewSummary(pool, p.id);
+          } catch (e) {
+            p.reviewsSummary = { count: 0, avg: 0 };
+          }
+        }));
+      } catch (e) {
+        console.warn('Could not attach reviewsSummary to filtered products', e);
+      }
+    }
+
     // Get categories for product category names
     const categoriesMap = {};
     const stmt2 = db.prepare('SELECT id, name FROM categories');
@@ -1294,6 +1343,12 @@ app.get('/api/products/filter', async (req, res) => {
         <div class="product-card">
           <div class="product-image">
             <img src="${(p.image || '/img/placeholder.jpg').replace(/"/g, '&quot;')}" alt="${escapedTitle}" loading="lazy" decoding="async">
+            ${p.reviewsSummary && p.reviewsSummary.count > 0 ? `
+            <div class="home-rating-pill image-badge">
+              <strong>${p.reviewsSummary.avg.toFixed(1)}</strong>
+              <span class="stars"> ${'★'.repeat(Math.round(p.reviewsSummary.avg))}${'☆'.repeat(5 - Math.round(p.reviewsSummary.avg))}</span>
+            </div>
+            ` : ''}
             <div class="product-overlay">
               <a href="/product/${p.slug}" class="btn quick-view">Xem chi tiết</a>
             </div>
@@ -1302,6 +1357,7 @@ app.get('/api/products/filter', async (req, res) => {
             <h3 class="product-title">
               <a href="/product/${p.slug}">${escapedTitle}</a>
             </h3>
+            ${'' /* rating pill moved into image wrapper above (image-badge) */}
             <p class="product-description">${escapedDesc}${(p.description && p.description.length > 80) ? '...' : ''}</p>
             <div class="product-stock">${stockBadge}</div>
             <div class="product-price">
@@ -1424,6 +1480,40 @@ app.get('/product/:slug', async (req, res) => {
       }
     };
 
+    // Ensure reviews table exists and load reviews for this product
+    try { await reviewService.ensureReviewsTableExists(pool); } catch (e) { /* ignore */ }
+    const reviews = await reviewService.getReviewsByProduct(pool, product.id, { limit: 50 });
+    const reviewsSummary = await reviewService.getReviewSummary(pool, product.id);
+
+    // Fetch questions for this product
+    let questions = [];
+    try {
+      const qRes = await pool.query(
+        `SELECT id, product_id, user_id, author_name, body, created_at, updated_at 
+         FROM questions WHERE product_id = $1 ORDER BY created_at DESC LIMIT 50`,
+        [product.id]
+      );
+      questions = qRes.rows || [];
+    } catch (e) {
+      console.error('Error fetching questions:', e);
+      questions = [];
+    }
+
+    // Determine whether current user purchased this product and whether they've already reviewed + wishlist
+    const userId = req.session?.user?.id || null;
+    let userHasPurchased = false;
+    let userHasReviewed = false;
+    if (userId) {
+      try {
+        const purchased = await pool.query(`
+                SELECT 1 FROM order_items oi JOIN orders o ON o.id = oi.order_id
+                WHERE oi.product_id = $1 AND o.user_id = $2 AND o.status IN ('paid','completed') LIMIT 1
+              `, [product.id, userId]);
+        userHasPurchased = purchased.rowCount > 0;
+      } catch (e) { userHasPurchased = false; }
+      try { userHasReviewed = await reviewService.hasUserReviewed(pool, product.id, userId); } catch (e) { userHasReviewed = false; }
+    }
+
     // Determine whether the current user has this product in their wishlist
     let isFavorited = false;
     if (req.session && req.session.user && req.session.user.id) {
@@ -1440,17 +1530,270 @@ app.get('/product/:slug', async (req, res) => {
       title: product.title + ' - SafeKeyS',
       product,
       category,
+      reviews,
+      questions: questions || [],
+      reviewsSummary,
       structuredData,
       description: product.description || `Mua ${product.title} với giá tốt nhất tại SafeKeyS`,
       canonical: req.protocol + "://" + req.get('host') + req.originalUrl,
       ogUrl: req.protocol + "://" + req.get('host') + req.originalUrl,
       ogImage: product.image || req.protocol + "://" + req.get('host') + "/img/placeholder.jpg",
-      isFavorited
+      isFavorited,
+      userCanReview: !!(userId && userHasPurchased && !userHasReviewed),
+      userHasPurchased,
+      userHasReviewed
     });
   } catch (error) {
     console.error('Error in product route:', error);
     req.flash('error', 'Có lỗi xảy ra khi tải sản phẩm');
     res.status(500).render('500', { title: 'Lỗi Server - SafeKeyS' });
+  }
+});
+
+// Submit a product review (accept images)
+// Post a question about a product (anyone can ask)
+app.post('/product/:id/question', async (req, res) => {
+  try {
+    const productId = Number(req.params.id);
+    if (isNaN(productId)) return res.redirect('back');
+
+    const body = (req.body.body || '').trim();
+    if (!body) {
+      req.flash('error', 'Vui lòng nhập nội dung câu hỏi');
+      return res.redirect('back');
+    }
+
+    const userId = req.session?.user?.id || null;
+    const authorName = req.session?.user?.name || req.body.author_name || 'Khách';
+
+    await pool.query(
+      `INSERT INTO questions (product_id, user_id, author_name, body, created_at, updated_at) 
+       VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [productId, userId, authorName, body]
+    );
+
+    req.flash('success', 'Cảm ơn — câu hỏi của bạn đã được gửi.');
+    const referer = req.get('Referer') || '/';
+    res.redirect(referer);
+  } catch (err) {
+    console.error('Error creating question', err);
+    req.flash('error', 'Không thể gửi câu hỏi — vui lòng thử lại');
+    res.redirect('back');
+  }
+});
+
+// Delete a question (author or admin only)
+app.delete('/api/questions/:id', async (req, res) => {
+  try {
+    const questionId = Number(req.params.id);
+    if (isNaN(questionId)) return res.status(400).json({ success: false, message: 'Invalid question ID' });
+
+    const userId = req.session?.user?.id || null;
+    if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated' });
+
+    // Fetch question to verify ownership or admin status
+    const qRes = await pool.query('SELECT user_id FROM questions WHERE id = $1', [questionId]);
+    if (qRes.rowCount === 0) return res.status(404).json({ success: false, message: 'Question not found' });
+
+    const question = qRes.rows[0];
+    const isAdmin = req.session?.user?.role === 'admin';
+    const isAuthor = question.user_id === userId;
+
+    if (!isAdmin && !isAuthor) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    // Delete the question
+    await pool.query('DELETE FROM questions WHERE id = $1', [questionId]);
+
+    res.json({ success: true, message: 'Question deleted' });
+  } catch (err) {
+    console.error('Error deleting question:', err);
+    res.status(500).json({ success: false, message: 'Failed to delete question' });
+  }
+});
+
+app.post('/product/:id/review', uploadReview.array('images', 3), async (req, res) => {
+  try {
+    const productId = Number(req.params.id);
+    if (isNaN(productId)) return res.redirect('back');
+
+    await reviewService.ensureReviewsTableExists(pool);
+
+    const rating = Math.max(1, Math.min(5, Number(req.body.rating || 5)));
+    const title = (req.body.title || '').trim();
+    const body = (req.body.body || '').trim();
+    const images = (req.files || []).map(f => `/img/reviews/${f.filename}`);
+
+    const userId = req.session?.user?.id || null;
+    // Only logged-in customers who purchased may submit reviews
+    if (!userId) {
+      req.flash('error', 'Bạn cần đăng nhập và đã mua sản phẩm để gửi đánh giá');
+      return res.redirect('back');
+    }
+
+    let verified = false;
+    if (userId) {
+      try {
+        const purchased = await pool.query(`
+          SELECT 1 FROM order_items oi JOIN orders o ON o.id = oi.order_id
+          WHERE oi.product_id = $1 AND o.user_id = $2 AND o.status IN ('paid','completed') LIMIT 1
+        `, [productId, userId]);
+        verified = purchased.rowCount > 0;
+      } catch (e) { /* ignore */ }
+    }
+
+    // must be a purchaser
+    if (!verified) {
+      req.flash('error', 'Chỉ những người đã mua sản phẩm mới được gửi đánh giá');
+      return res.redirect('back');
+    }
+
+    // Prevent duplicate reviews by the same user
+    const already = await reviewService.hasUserReviewed(pool, productId, userId);
+    if (already) {
+      req.flash('error', 'Bạn chỉ được gửi một đánh giá cho mỗi sản phẩm');
+      return res.redirect('back');
+    }
+
+    const authorName = req.session?.user?.name || req.body.author_name || 'Khách';
+
+    await reviewService.addReview(pool, {
+      product_id: productId,
+      user_id: userId,
+      author_name: authorName,
+      rating,
+      title: title || null,
+      body: body || null,
+      images,
+      verified_purchase: verified
+    });
+
+    req.flash('success', 'Cảm ơn — đánh giá của bạn đã được gửi.');
+    const referer = req.get('Referer') || '/';
+    res.redirect(referer);
+  } catch (err) {
+    console.error('Error creating review', err);
+    req.flash('error', 'Không thể gửi đánh giá — vui lòng thử lại');
+    res.redirect('back');
+  }
+});
+
+// API: fetch reviews for a product (optionally filter by rating)
+app.get('/api/products/:productId/reviews', async (req, res) => {
+  try {
+    const productId = Number(req.params.productId);
+    if (isNaN(productId)) return res.status(400).json({ reviews: [] });
+    await reviewService.ensureReviewsTableExists(pool);
+    const rating = req.query.rating ? Number(req.query.rating) : null;
+    const reviews = await reviewService.getReviewsByProduct(pool, productId, { rating });
+    res.json({ reviews });
+  } catch (err) {
+    console.error('Error loading reviews', err);
+    res.status(500).json({ reviews: [] });
+  }
+});
+
+// API: vote helpful on a review
+app.post('/api/reviews/:id/vote', async (req, res) => {
+  try {
+    if (!req.session || !req.session.user || !req.session.user.id) return res.status(401).json({ success: false, error: 'Vui lòng đăng nhập' });
+    const id = Number(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ success: false, error: 'ID không hợp lệ' });
+    const { vote } = req.body || {};
+    if (!['up', 'down'].includes(vote)) return res.status(400).json({ success: false, error: 'Vote type không hợp lệ' });
+
+    const userId = req.session.user.id;
+
+    // Check if user has already voted for this review
+    const existingVoteResult = await pool.query(
+      'SELECT vote_type FROM review_votes WHERE review_id = $1 AND user_id = $2',
+      [id, userId]
+    );
+
+    if (existingVoteResult.rows.length > 0) {
+      const existingVote = existingVoteResult.rows[0].vote_type;
+
+      // If voting the same way, remove the vote
+      if (existingVote === vote) {
+        await pool.query(
+          'DELETE FROM review_votes WHERE review_id = $1 AND user_id = $2',
+          [id, userId]
+        );
+
+        // Decrement the corresponding helpful count
+        if (vote === 'up') {
+          await pool.query(
+            'UPDATE reviews SET helpful_up = MAX(0, helpful_up - 1) WHERE id = $1',
+            [id]
+          );
+        } else {
+          await pool.query(
+            'UPDATE reviews SET helpful_down = MAX(0, helpful_down - 1) WHERE id = $1',
+            [id]
+          );
+        }
+
+        const updatedReview = await pool.query('SELECT helpful_up, helpful_down FROM reviews WHERE id = $1', [id]);
+        return res.json({
+          success: true,
+          up: updatedReview.rows[0].helpful_up,
+          down: updatedReview.rows[0].helpful_down,
+          message: 'Đã hủy vote'
+        });
+      } else {
+        // If voting differently, update the vote
+        await pool.query(
+          'UPDATE review_votes SET vote_type = $1 WHERE review_id = $2 AND user_id = $3',
+          [vote, id, userId]
+        );
+
+        // Update helpful counts
+        if (existingVote === 'up') {
+          await pool.query('UPDATE reviews SET helpful_up = MAX(0, helpful_up - 1) WHERE id = $1', [id]);
+        } else {
+          await pool.query('UPDATE reviews SET helpful_down = MAX(0, helpful_down - 1) WHERE id = $1', [id]);
+        }
+
+        if (vote === 'up') {
+          await pool.query('UPDATE reviews SET helpful_up = helpful_up + 1 WHERE id = $1', [id]);
+        } else {
+          await pool.query('UPDATE reviews SET helpful_down = helpful_down + 1 WHERE id = $1', [id]);
+        }
+
+        const updatedReview = await pool.query('SELECT helpful_up, helpful_down FROM reviews WHERE id = $1', [id]);
+        return res.json({
+          success: true,
+          up: updatedReview.rows[0].helpful_up,
+          down: updatedReview.rows[0].helpful_down,
+          message: 'Đã cập nhật vote'
+        });
+      }
+    } else {
+      // First time voting
+      await pool.query(
+        'INSERT INTO review_votes (review_id, user_id, vote_type) VALUES ($1, $2, $3)',
+        [id, userId, vote]
+      );
+
+      // Increment the helpful count
+      if (vote === 'up') {
+        await pool.query('UPDATE reviews SET helpful_up = helpful_up + 1 WHERE id = $1', [id]);
+      } else {
+        await pool.query('UPDATE reviews SET helpful_down = helpful_down + 1 WHERE id = $1', [id]);
+      }
+
+      const updatedReview = await pool.query('SELECT helpful_up, helpful_down FROM reviews WHERE id = $1', [id]);
+      return res.json({
+        success: true,
+        up: updatedReview.rows[0].helpful_up,
+        down: updatedReview.rows[0].helpful_down,
+        message: 'Cảm ơn bạn đã vote'
+      });
+    }
+  } catch (err) {
+    console.error('Error voting', err);
+    res.status(500).json({ success: false, error: 'Có lỗi xảy ra' });
   }
 });
 
@@ -1639,6 +1982,44 @@ async function getCart(req) {
   if (typeof req.session.cart.totalCents !== 'number') {
     req.session.cart.totalCents = 0;
     req.session.touch();
+  }
+
+  // Recompute derived totals from snapshotted items so clients always see accurate
+  // originalTotalCents and discountCents even if session was created earlier.
+  try {
+    let runningTotal = 0;
+    let runningOriginalTotal = 0;
+    let runningQty = 0;
+    const items = req.session.cart.items || {};
+    Object.keys(items).forEach(k => {
+      const entry = items[k];
+      const qty = entry.qty || 0;
+      const price = entry.product && typeof entry.product.price_cents === 'number' ? entry.product.price_cents : 0;
+      const orig = entry.product && typeof entry.product.original_price_cents === 'number' ? entry.product.original_price_cents : price;
+      runningTotal += qty * price;
+      runningOriginalTotal += qty * orig;
+      runningQty += qty;
+    });
+
+    req.session.cart.totalCents = runningTotal;
+    req.session.cart.originalTotalCents = runningOriginalTotal;
+    req.session.cart.discountCents = Math.max(0, runningOriginalTotal - runningTotal);
+    req.session.cart.totalQty = runningQty;
+    try {
+      const vatPercentStr = await getSetting('vat_percent', '10');
+      const vatPercent = Math.max(0, Math.min(100, parseInt(String(vatPercentStr || '0'), 10) || 0));
+      const vatCents = Math.round(req.session.cart.totalCents * vatPercent / 100);
+      req.session.cart.vatPercent = vatPercent;
+      req.session.cart.vatCents = vatCents;
+      req.session.cart.grandTotalCents = req.session.cart.totalCents + vatCents;
+    } catch (e) {
+      req.session.cart.vatPercent = 0;
+      req.session.cart.vatCents = 0;
+      req.session.cart.grandTotalCents = req.session.cart.totalCents;
+    }
+    req.session.touch();
+  } catch (err) {
+    console.error('Error recomputing cart totals:', err);
   }
 
   return req.session.cart;
@@ -2255,7 +2636,7 @@ app.post('/admin/orders/:orderId/status', requireAdmin, async (req, res) => {
   }
 });
 
-// Admin update product key (each product has 1 key) - AJAX version
+// Admin add/update product key - AJAX version (now using product_keys table for multiple keys)
 app.post('/admin/products/:productId/key', requireAdmin, requireKeysPassword, async (req, res) => {
   try {
     const productId = parseInt(req.params.productId, 10);
@@ -2271,41 +2652,53 @@ app.post('/admin/products/:productId/key', requireAdmin, requireKeysPassword, as
       return res.status(404).json({ success: false, error: 'Sản phẩm không tồn tại' });
     }
 
-    // Update product key using PostgreSQL
+    // Add key to product_keys table (insert new row instead of updating product)
     const trimmedKey = key_value ? key_value.trim() : null;
-    await pool.query('UPDATE products SET key_value = $1 WHERE id = $2', [trimmedKey, productId]);
-
-    // Sync to data file
-    try {
-      dataManager.updateItem('products', productId, { key_value: trimmedKey });
-    } catch (dataError) {
-      console.error('Error syncing key to data file:', dataError);
+    if (!trimmedKey) {
+      return res.status(400).json({ success: false, error: 'Key không được để trống' });
     }
 
-    return res.json({ success: true, message: 'Đã cập nhật key cho sản phẩm thành công' });
+    const insertResult = await pool.query(
+      'INSERT INTO product_keys (product_id, key_value, created_at) VALUES ($1, $2, CURRENT_TIMESTAMP) RETURNING id',
+      [productId, trimmedKey]
+    );
+
+    const keyId = insertResult.rows[0]?.id;
+
+    return res.json({
+      success: true,
+      message: 'Đã thêm key cho sản phẩm thành công',
+      keyId: keyId
+    });
   } catch (error) {
-    console.error('Error updating product key:', error);
-    return res.status(500).json({ success: false, error: 'Lỗi khi cập nhật key: ' + error.message });
+    console.error('Error adding product key:', error);
+    return res.status(500).json({ success: false, error: 'Lỗi khi thêm key: ' + error.message });
   }
 });
 
-// Admin delete product key - AJAX version
-app.post('/admin/products/:productId/key/delete', requireAdmin, requireKeysPassword, async (req, res) => {
+// Admin delete product key (soft delete) - AJAX version
+app.post('/admin/products/:productId/key/:keyId/delete', requireAdmin, requireKeysPassword, async (req, res) => {
   try {
     const productId = parseInt(req.params.productId, 10);
-    if (isNaN(productId)) {
-      return res.status(400).json({ success: false, error: 'ID sản phẩm không hợp lệ' });
+    const keyId = parseInt(req.params.keyId, 10);
+    if (isNaN(productId) || isNaN(keyId)) {
+      return res.status(400).json({ success: false, error: 'ID không hợp lệ' });
     }
 
-    // Delete product key using PostgreSQL
-    await pool.query('UPDATE products SET key_value = NULL WHERE id = $1', [productId]);
-
-    // Sync to data file
-    try {
-      dataManager.updateItem('products', productId, { key_value: null });
-    } catch (dataError) {
-      console.error('Error syncing key deletion to data file:', dataError);
+    // Verify key exists and belongs to product
+    const keyResult = await pool.query(
+      'SELECT * FROM product_keys WHERE id = $1 AND product_id = $2 AND deleted_at IS NULL',
+      [keyId, productId]
+    );
+    if (keyResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Key không tồn tại' });
     }
+
+    // Soft delete the key by setting deleted_at timestamp
+    await pool.query(
+      'UPDATE product_keys SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1',
+      [keyId]
+    );
 
     return res.json({ success: true, message: 'Đã xóa key thành công' });
   } catch (error) {
@@ -2396,13 +2789,23 @@ app.post('/admin/keys/logout', requireAdmin, (req, res) => {
 app.get('/admin/keys', requireAdmin, requireKeysPassword, async (req, res) => {
   console.log('🔑 Accessing /admin/keys route - SUCCESS!');
   try {
-    // Get all products with their keys (each product has 1 key stored in key_value column)
+    // Get all products with their keys from product_keys table
     const products = await db.prepare(`
       SELECT p.*, c.name as category_name
       FROM products p
       LEFT JOIN categories c ON c.id = p.category_id
       ORDER BY p.id DESC
     `).all();
+
+    // Get keys for each product from product_keys table (only non-deleted keys)
+    const productKeys = {};
+    for (const product of products) {
+      const keysResult = await pool.query(
+        'SELECT id, key_value, created_at FROM product_keys WHERE product_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC',
+        [product.id]
+      );
+      productKeys[product.id] = keysResult.rows || [];
+    }
 
     // Get order count for each product
     const orderCounts = {};
@@ -2426,6 +2829,7 @@ app.get('/admin/keys', requireAdmin, requireKeysPassword, async (req, res) => {
     res.render('admin/keys', {
       title: 'Quản lý Key - SafeKeyS',
       products,
+      productKeys,
       orderCounts,
       keyDisplayTitle,
       keyDisplayMessage
@@ -2664,6 +3068,20 @@ app.get('/admin/users/:userId/orders', requireAdmin, async (req, res) => {
       [userId]
     );
     const orders = ordersResult.rows;
+
+    // Ensure VAT display values exist even if DB schema doesn't have vat_percent/vat_cents
+    try {
+      const vatPercentStr = await getSetting('vat_percent', '10');
+      const defaultVat = Math.max(0, Math.min(100, parseInt(String(vatPercentStr || '0'), 10) || 0));
+      for (const o of orders) {
+        if (o.vat_percent == null) o.vat_percent = defaultVat;
+        if (o.vat_cents == null) {
+          o.vat_cents = Math.round((o.total_cents || 0) * o.vat_percent / (100 + o.vat_percent));
+        }
+      }
+    } catch (e) {
+      // ignore and let templates fallback to 0
+    }
 
     // Get order items and keys using PostgreSQL
     const itemsByOrder = {};
@@ -2991,6 +3409,22 @@ app.post('/admin/settings/save', requireAdmin, upload.any(), (req, res) => {
       return res.json({ success: true, message: 'Đã lưu nội dung trang chủ thành công!' });
     }
 
+    if (section === 'vat') {
+      // Validate and save VAT percent
+      let vatPercent = parseInt(req.body.vat_percent || '10', 10);
+
+      if (isNaN(vatPercent) || vatPercent < 0) {
+        vatPercent = 0;
+      } else if (vatPercent > 100) {
+        vatPercent = 100;
+      }
+
+      setSetting('vat_percent', String(vatPercent));
+      console.log(`✅ VAT percent updated to: ${vatPercent}%`);
+
+      return res.json({ success: true, message: `Đã lưu VAT ${vatPercent}% thành công!` });
+    }
+
     if (section === 'pages') {
       // Validate required fields
       const requiredFields = ['page_about', 'page_policy', 'page_payment', 'page_contact'];
@@ -3161,6 +3595,7 @@ app.post('/admin/products', requireAdmin,
   body('discount_percent').optional().isInt({ min: 0, max: 100 }).withMessage('Khuyến mãi phải là một số từ 0 đến 100'),
   body('stock').optional().isInt({ min: 0 }).withMessage('Tồn kho phải là số nguyên dương'),
   body('image').optional().isURL().withMessage('URL ảnh không hợp lệ'),
+  body('download_link').optional().trim(),
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -3168,7 +3603,7 @@ app.post('/admin/products', requireAdmin,
       return res.redirect('/admin/products');
     }
 
-    const { title, slug, description, price_vnd, image, category_id, stock, discount_percent } = req.body;
+    const { title, slug, description, price_vnd, image, category_id, stock, discount_percent, download_link } = req.body;
 
     try {
       // Check slug uniqueness
@@ -3184,9 +3619,10 @@ app.post('/admin/products', requireAdmin,
 
       // Use pool.query with RETURNING id for PostgreSQL
       const discountPercentVal = Math.max(0, Math.min(100, parseInt(String(discount_percent || 0), 10)));
+      const downloadLinkVal = download_link && download_link.trim() ? download_link.trim() : null;
 
       const result = await pool.query(
-        'INSERT INTO products (title, slug, description, price_cents, discount_percent, image, category_id, active, stock) VALUES ($1, $2, $3, $4, $5, $6, $7, 1, $8) RETURNING id',
+        'INSERT INTO products (title, slug, description, price_cents, discount_percent, image, category_id, active, stock, download_link) VALUES ($1, $2, $3, $4, $5, $6, $7, 1, $8, $9) RETURNING id',
         [
           title.trim(),
           slug.trim(),
@@ -3195,7 +3631,8 @@ app.post('/admin/products', requireAdmin,
           discountPercentVal,
           image ? image.trim() : null,
           category_id ? Number(category_id) : null,
-          Math.max(0, parseInt(String(stock || 0), 10))
+          Math.max(0, parseInt(String(stock || 0), 10)),
+          downloadLinkVal
         ]
       );
       const productId = result.rows[0]?.id;
@@ -3215,6 +3652,7 @@ app.post('/admin/products', requireAdmin,
           stock: Math.max(0, parseInt(String(stock || 0), 10)),
           featured: 0,
           key_value: null,
+          download_link: downloadLinkVal,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         });
@@ -3262,6 +3700,7 @@ app.post('/admin/products/:id/edit', requireAdmin,
   body('price_vnd').isFloat({ min: 0 }).withMessage('Giá phải là số dương'),
   body('stock').optional().isInt({ min: 0 }).withMessage('Tồn kho phải là số nguyên dương'),
   body('image').optional().isURL().withMessage('URL ảnh không hợp lệ'),
+  body('download_link').optional().trim(),
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -3269,7 +3708,7 @@ app.post('/admin/products/:id/edit', requireAdmin,
       return res.redirect(`/admin/products/${req.params.id}/edit`);
     }
 
-    const { title, slug, description, price_vnd, image, category_id, stock, active, discount_percent } = req.body;
+    const { title, slug, description, price_vnd, image, category_id, stock, active, discount_percent, download_link } = req.body;
     const id = Number(req.params.id);
     // Convert VND to cents (admin enters VND, we store as cents)
     const price = Math.max(0, Math.round(Number(price_vnd || 0) * 100));
@@ -3294,15 +3733,16 @@ app.post('/admin/products/:id/edit', requireAdmin,
 
       const featured = req.body.featured === '1' ? 1 : 0;
       const discountPercentVal = Math.max(0, Math.min(100, parseInt(String(discount_percent || 0), 10)));
+      const downloadLinkVal = download_link && download_link.trim() ? download_link.trim() : null;
 
       // Update product using PostgreSQL
       await pool.query(
         `UPDATE products 
          SET title = $1, slug = $2, description = $3, price_cents = $4, discount_percent = $5, image = $6, 
-           category_id = $7, stock = $8, active = $9, featured = $10 
+           category_id = $7, stock = $8, active = $9, featured = $10, download_link = $12 
          WHERE id = $11`,
         [title, slug, description || null, price, discountPercentVal, image || null,
-          category_id ? Number(category_id) : null, stockNum, act, featured, id]
+          category_id ? Number(category_id) : null, stockNum, act, featured, id, downloadLinkVal]
       );
 
       // Sync to data file
@@ -3317,7 +3757,8 @@ app.post('/admin/products/:id/edit', requireAdmin,
           category_id: category_id ? Number(category_id) : null,
           stock: stockNum,
           active: act,
-          featured
+          featured,
+          download_link: downloadLinkVal
         });
       } catch (dataError) {
         console.error('Error syncing product update to data file:', dataError);
@@ -4189,6 +4630,8 @@ async function startServer() {
             )
           `);
 
+          // Note: VAT is computed dynamically (default 10%) and is not stored in DB columns
+
           await client.query(`
             CREATE TABLE IF NOT EXISTS order_keys (
               id SERIAL PRIMARY KEY,
@@ -4196,6 +4639,17 @@ async function startServer() {
               key_value TEXT NOT NULL,
               created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
               FOREIGN KEY (order_item_id) REFERENCES order_items(id) ON DELETE CASCADE
+            )
+          `);
+
+          await client.query(`
+            CREATE TABLE IF NOT EXISTS product_keys (
+              id SERIAL PRIMARY KEY,
+              product_id INTEGER NOT NULL,
+              key_value TEXT NOT NULL,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              deleted_at TIMESTAMP NULL,
+              FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
             )
           `);
 
@@ -4239,6 +4693,8 @@ async function startServer() {
           await client.query('CREATE INDEX IF NOT EXISTS idx_products_featured ON products(featured)');
           await client.query('CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id)');
           await client.query('CREATE INDEX IF NOT EXISTS idx_orders_user_deleted ON orders(user_deleted_at)');
+          await client.query('CREATE INDEX IF NOT EXISTS idx_product_keys_product ON product_keys(product_id)');
+          await client.query('CREATE INDEX IF NOT EXISTS idx_product_keys_deleted ON product_keys(deleted_at)');
 
           // Add user_deleted_at column if it doesn't exist (for existing databases)
           await client.query(`
@@ -4289,6 +4745,35 @@ async function startServer() {
 
     // Seed default settings
     await seedDefaults();
+
+    // Ensure product_keys table exists for existing databases
+    try {
+      const checkResult = await pool.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'product_keys'
+        )
+      `);
+
+      if (!checkResult.rows[0].exists) {
+        await pool.query(`
+          CREATE TABLE product_keys (
+            id SERIAL PRIMARY KEY,
+            product_id INTEGER NOT NULL,
+            key_value TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            deleted_at TIMESTAMP NULL,
+            FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+          )
+        `);
+        await pool.query('CREATE INDEX IF NOT EXISTS idx_product_keys_product ON product_keys(product_id)');
+        await pool.query('CREATE INDEX IF NOT EXISTS idx_product_keys_deleted ON product_keys(deleted_at)');
+        console.log('✅ Đã tạo bảng product_keys');
+      }
+    } catch (migrationError) {
+      console.error('⚠️  Lỗi khi kiểm tra/tạo bảng product_keys:', migrationError.message);
+    }
 
     // Ensure user_deleted_at column exists in orders table
     try {

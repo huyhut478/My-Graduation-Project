@@ -1,9 +1,9 @@
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { ICONS_PATH, AVATARS_PATH } from './paths.js';
+import { ICONS_PATH, AVATARS_PATH, REVIEWS_PATH } from './paths.js';
 
-for (const dir of [ICONS_PATH, AVATARS_PATH]) {
+for (const dir of [ICONS_PATH, AVATARS_PATH, REVIEWS_PATH]) {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -59,7 +59,27 @@ const uploadAvatar = multer({
   fileFilter: imageFilter
 });
 
-export { upload, uploadAvatar, imageFilter };
+const reviewStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, REVIEWS_PATH);
+  },
+  filename: function (req, file, cb) {
+    // review_user_<id>_timestamp.ext
+    const userId = req.session?.user?.id || 'guest';
+    const timestamp = Date.now();
+    const ext = path.extname(file.originalname) || '.png';
+    const filename = `review_${userId}_${timestamp}_${Math.floor(Math.random() * 1000)}${ext}`;
+    cb(null, filename);
+  }
+});
+
+const uploadReview = multer({
+  storage: reviewStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: imageFilter
+});
+
+export { upload, uploadAvatar, uploadReview, imageFilter };
 
 
 

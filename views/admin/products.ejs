@@ -1,8 +1,8 @@
 <div class="admin-products">
-  <h1>📦 Quản lý sản phẩm</h1>
+  <h1>Quản lý sản phẩm</h1>
   
   <div class="product-form-card">
-    <h2>➕ Thêm sản phẩm mới</h2>
+    <h2>Thêm sản phẩm mới</h2>
     <form action="/admin/products?_csrf=<%= csrfToken %>" method="post" class="product-form">
       <div class="form-grid">
         <div class="form-group full-width">
@@ -42,6 +42,12 @@
           <label for="image">URL ảnh sản phẩm</label>
           <input type="url" id="image" name="image" placeholder="https://example.com/image.jpg" />
           <small class="form-hint">Để trống sẽ sử dụng ảnh mặc định</small>
+        </div>
+
+        <div class="form-group full-width">
+          <label for="download_link">Link tải file</label>
+          <input type="url" id="download_link" name="download_link" placeholder="https://example.com/file.zip" />
+          <small class="form-hint">Đường dẫn đến file tải (ví dụ: link Google Drive, OneDrive, Mega, ...)</small>
         </div>
         
         <div class="form-group full-width">

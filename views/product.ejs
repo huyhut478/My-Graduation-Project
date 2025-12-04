@@ -5,7 +5,85 @@
   </div>
   
   <div class="product-info">
-    <h1 class="product-title"><%= product.title %></h1>
+    <!-- Accessibility: stronger contrast for dark theme within the product area only
+         We intentionally override a few CSS variables locally so this page is more readable
+         in dark mode (no structural changes to layout). These are scoped to .product-info /
+         descendant elements and won't change site-wide appearance for other pages. -->
+    <style>
+      /* Only apply the product-area dark-variable overrides when the site is NOT in light theme.
+         This prevents forcing dark card/bg/fg values while a user has `.theme-light` on the page. */
+      body:not(.theme-light) .product-detail {
+        --fg: #f8fafc;       /* primary text slightly brighter */
+        --fg-secondary: #e6eef6; /* secondary text / headings */
+        --muted: #c5ccd3;    /* muted text is lighter for readability */
+        --card: #0b1220;     /* card bg slightly darker than site bg */
+        --card-hover: #0f1724; /* subtle hover */
+        --border: rgba(255,255,255,0.06); /* slightly lighter borders for separation */
+        --primary: #16a34a;  /* ensure primary still uses brand green */
+      }
+
+      /* Make secondary buttons slightly more contrasted in the product area */
+      body:not(.theme-light) .product-detail .btn.secondary {
+        background: rgba(255,255,255,0.03);
+        border-color: rgba(255,255,255,0.06);
+        color: var(--fg);
+      }
+
+      /* Make the review banner text clearer when not in light theme */
+      body:not(.theme-light) .product-detail .review-summary-banner {
+        color: #1f2937; /* keep readable on yellow banner */
+      }
+
+      /* Increase visibility of small controls in dark product area */
+      body:not(.theme-light) .product-detail .btn.small { color: var(--fg); border-color: rgba(255,255,255,0.06); }
+    </style>
+    <div class="product-header-grid">
+      <div class="product-header-left">
+        <h1 class="product-title"><%= product.title %></h1>
+        <div class="product-subline">
+          <div class="rating-inline">
+            <% if (typeof reviewsSummary !== 'undefined' && reviewsSummary.count > 0) { %>
+              <div class="avg-rating-big"><strong><%= reviewsSummary.avg.toFixed(1) %></strong> <span class="stars"> <%= '★'.repeat(Math.round(reviewsSummary.avg)) %><%= '☆'.repeat(5-Math.round(reviewsSummary.avg)) %></span></div>
+              <div class="rating-meta muted"><%= reviewsSummary.count %> đánh giá</div>
+            <% } else { %>
+              <div class="muted">Chưa có đánh giá</div>
+            <% } %>
+          </div>
+
+          <div class="product-ids">#<%= product.id %> • <%= category ? category.name : 'Chưa phân loại' %></div>
+        </div>
+      </div>
+
+      <div class="product-header-right">
+        <div class="price-stock">
+          <% if (product.discount_percent && Number(product.discount_percent) > 0) { %>
+            <% const _priceCents = product.price_cents || 0;
+               const _discountedCents = Math.round(_priceCents * (100 - Number(product.discount_percent)) / 100);
+            %>
+            <div class="discounted-price"><%= ((_discountedCents)/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) %></div>
+            <div class="original-price muted"><%= ((_priceCents)/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) %></div>
+          <% } else { %>
+            <div class="discounted-price"><%= ((product.price_cents || 0)/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) %></div>
+          <% } %>
+          <div class="stock-state <%= product.stock>0 ? 'in-stock' : 'out-of-stock' %>"><%= product.stock>0 ? 'Còn hàng' : 'Hết hàng' %></div>
+        </div>
+
+        <div class="product-actions-compact">
+          <% if (currentUser) { %>
+            <form action="/wishlist/add/<%= product.id %>?_csrf=<%= csrfToken %>" method="post" class="wishlist-form">
+              <button type="submit" class="btn wishlist-small <%= typeof isFavorited !== 'undefined' && isFavorited ? 'active' : '' %>" aria-pressed="<%= typeof isFavorited !== 'undefined' && isFavorited ? 'true' : 'false' %>">❤️</button>
+            </form>
+          <% } %>
+          <% if (product.stock > 0) { %>
+            <form action="/cart/add/<%= product.id %>?_csrf=<%= csrfToken %>" method="post" class="add-to-cart-compact">
+              <button class="btn primary">Thêm vào giỏ</button>
+            </form>
+          <% } else { %>
+            <button class="btn disabled">Hết hàng</button>
+          <% } %>
+        </div>
+      </div>
+    </div>
     
     <div class="product-price">
       <% if (product.discount_percent && Number(product.discount_percent) > 0) { %>
@@ -37,31 +115,16 @@
     </div>
     
     <div class="product-actions">
-      <div class="action-buttons">
-        <% if (currentUser) { %>
-          <form action="/wishlist/add/<%= product.id %>?_csrf=<%= csrfToken %>" method="post" class="wishlist-form">
-            <button type="submit" class="btn wishlist-btn-large <%= typeof isFavorited !== 'undefined' && isFavorited ? 'active' : '' %>" title="Thêm vào danh sách yêu thích" aria-pressed="<%= typeof isFavorited !== 'undefined' && isFavorited ? 'true' : 'false' %>">
-              <svg class="icon-heart" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="currentColor"></path></svg>
-              <span>Yêu thích</span>
-            </button>
-          </form>
-        <% } %>
-        
-        <% if (product.stock > 0) { %>
-          <form action="/cart/add/<%= product.id %>?_csrf=<%= csrfToken %>" method="post" class="add-to-cart-form">
-            <button type="submit" class="btn primary large">
-              <svg class="icon-cart" viewBox="0 0 576 512" width="16" height="16" aria-hidden="true" style="vertical-align:middle;margin-right:6px;"><path d="M551.991 64H144.28l-8.726-44.608C133.35 8.128 123.478 0 112 0H12C5.373 0 0 5.373 0 12v24c0 6.627 5.373 12 12 12h80.24l69.594 355.701C150.796 415.201 144 430.802 144 448c0 35.346 28.654 64 64 64s64-28.654 64-64a63.681 63.681 0 0 0-8.583-32h145.167a63.681 63.681 0 0 0-8.583 32c0 35.346 28.654 64 64 64 35.346 0 64-28.654 64-64 0-18.136-7.556-34.496-19.676-46.142l1.035-4.757c3.254-14.96-8.142-29.101-23.452-29.101H203.76l-9.39-48h312.405c11.29 0 21.054-7.869 23.452-18.902l45.216-208C578.695 78.139 567.299 64 551.991 64zM208 472c-13.234 0-24-10.766-24-24s10.766-24 24-24 24 10.766 24 24-10.766 24-24 24zm256 0c-13.234 0-24-10.766-24-24s10.766-24 24-24 24 10.766 24 24-10.766 24-24 24zm23.438-200H184.98l-31.31-160h368.548l-34.78 160z" fill="currentColor"></path></svg>
-              Thêm vào giỏ hàng
-            </button>
-          </form>
-        <% } else { %>
-          <button class="btn large disabled" disabled>
-            <span>❌</span>
-            Hết hàng
-          </button>
-        <% } %>
-      </div>
-      
+      <!-- Primary purchase/wishlist controls are shown in the header (compact controls).
+           Removed the duplicate large buttons here to avoid confusing duplicate actions.
+           Admin edit link remains available below when the user is an admin. -->
+      <% if (product.download_link) { %>
+        <div class="download-product-actions">
+          <a href="<%= product.download_link %>" target="_blank" rel="noopener noreferrer" class="btn primary">
+            Download
+          </a>
+        </div>
+      <% } %>
       <% if (currentUser && currentUser.role === 'admin') { %>
         <div class="admin-product-actions">
           <a href="/admin/products/<%= product.id %>/edit" class="btn secondary">✏️ Sửa sản phẩm</a>
@@ -96,6 +159,247 @@
         <div class="feature-content">
           <strong>Nhận key qua email</strong>
           <span>Kiểm tra cả hộp thư spam</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- FAQ accordion + Chat Widgets + Reviews area -->
+    <div class="product-extra" style="margin-top:20px">
+      <div class="faq-and-chat" style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap">
+        <div class="faq" style="flex:1;min-width:280px">
+          <h3>FAQ - Câu hỏi thường gặp</h3>
+          <div class="faq-item">
+            <button class="faq-q">Sản phẩm có bản quyền không?</button>
+            <div class="faq-a">Tất cả key bên chúng tôi là key chính hãng — 100% an toàn.</div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-q">Cách nhận key sau khi thanh toán?</button>
+            <div class="faq-a">Key sẽ được gửi qua email và hiển thị trong đơn hàng của bạn.</div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-q">Hỗ trợ kỹ thuật sau khi mua?</button>
+            <div class="faq-a">Chúng tôi hỗ trợ 24/7 qua chat hoặc email.</div>
+          </div>
+        </div>
+
+        <div class="chat-widgets" style="width:260px">
+          <h3>Chat & Trợ giúp</h3>
+          <div class="chat-links" style="display:flex;flex-direction:column;gap:8px">
+            <a class="btn" href="https://m.me/yourpage" target="_blank">Messenger</a>
+            <a class="btn" href="https://zalo.me/yourzalo" target="_blank">Zalo</a>
+          </div>
+
+          <!-- Chat widget placeholders: add scripts if you enable them in production -->
+          <div id="chat-widgets-scripts" style="display:none"></div>
+        </div>
+      </div>
+
+      <hr style="margin:16px 0;border:none;border-top:1px solid var(--border);" />
+
+      <!-- Reviews summary + filters -->
+      <div class="reviews-section" id="reviews-section">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <h3>Đánh giá khách hàng</h3>
+          <div style="display:flex;align-items:center;gap:8px">
+            <select id="filter-rating" style="padding:8px;border-radius:6px;border:1px solid var(--border)">
+              <option value="all">Tất cả sao</option>
+              <option value="5">5 sao</option>
+              <option value="4">4 sao</option>
+              <option value="3">3 sao</option>
+              <option value="2">2 sao</option>
+              <option value="1">1 sao</option>
+            </select>
+            <button class="btn secondary" id="leave-comment-btn">💬 Bình luận</button>
+            <button class="btn secondary" id="leave-review-btn">⭐ Đánh giá</button>
+          </div>
+        </div>
+
+        <div class="review-summary-banner" style="display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap">
+          <% if (typeof reviewsSummary !== 'undefined' && reviewsSummary.count > 0) { %>
+            <div class="big-rating" style="display:flex;align-items:center;gap:8px">
+              <div style="font-weight:800;font-size:26px"><%= reviewsSummary.avg.toFixed(1) %></div>
+              <div style="color:var(--muted)">⭐️</div>
+              <div style="color:var(--muted);font-size:14px">(<%= reviewsSummary.count %> Votes)</div>
+            </div>
+          <% } else { %>
+            <div class="muted">Chưa có đánh giá nào — bạn có thể là người đầu tiên!</div>
+          <% } %>
+
+          <!-- rating stars input preview area (will be populated by JS) -->
+          <div id="rating-preview" style="margin-left:auto"></div>
+        </div>
+
+        <!-- Reviews list -->
+        <div id="reviews-list" style="margin-top:16px">
+          <% if (Array.isArray(reviews) && reviews.length) { %>
+            <% reviews.forEach(function(r){ %>
+              <div class="review" data-id="<%= r.id %>" style="border:1px solid var(--border);padding:12px;border-radius:10px;margin-bottom:12px;background:var(--card)">
+                <div style="display:flex;align-items:center;gap:12px">
+                  <div class="avatar"><%= (r.author_name || 'U')[0].toUpperCase() %></div>
+                  <div style="flex:1">
+                    <div style="display:flex;align-items:center;gap:12px;justify-content:space-between">
+                      <div>
+                        <strong><%= r.author_name || 'Khách' %></strong>
+                        <% if (r.verified_purchase) { %><span class="badge verified">Verified purchase</span><% } %>
+                        <div style="font-size:13px;color:var(--muted)"><%= new Date(r.created_at).toLocaleString('vi-VN') %></div>
+                      </div>
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <div class="review-stars" aria-hidden="true"> <%= '★'.repeat(r.rating) + '☆'.repeat(5-r.rating) %></div>
+
+                      </div>
+                    </div>
+                    <% if (r.title) { %><div style="font-weight:700;margin-top:6px"><%= r.title %></div><% } %>
+                    <% if (r.body) { %><div style="margin-top:6px;color:var(--muted)"><%= r.body %></div><% } %>
+                    <% if (Array.isArray(r.images) && r.images.length) { %>
+                      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+                        <% r.images.forEach(function(img){ %>
+                          <img src="<%= img %>" class="review-image" />
+                        <% }) %>
+                      </div>
+                    <% } %>
+                  </div>
+                </div>
+              </div>
+            <% }) %>
+          <% } else { %>
+            <div class="muted">Chưa có review nào.</div>
+          <% } %>
+        </div>
+
+        <!-- Questions list (already asked questions) -->
+        <div id="questions-list" style="margin-top:16px">
+          <% if (typeof questions !== 'undefined' && Array.isArray(questions) && questions.length) { %>
+            <h4 style="margin-bottom:16px;color:var(--fg)">💬 Câu hỏi từ khách hàng</h4>
+            <% questions.forEach(function(q){ %>
+              <div class="question" data-id="<%= q.id %>" style="border:1px solid var(--border);padding:12px;border-radius:10px;margin-bottom:12px;background:var(--card)">
+                <div style="display:flex;align-items:flex-start;gap:12px">
+                  <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg, var(--primary) 0%, #15803d 100%);display:flex;align-items:center;justify-content:center;font-weight:700;color:white;flex-shrink:0"><%= (q.author_name || 'U')[0].toUpperCase() %></div>
+                  <div style="flex:1;min-width:0">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;justify-content:space-between">
+                      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                        <strong style="color:var(--fg)"><%= q.author_name || 'Khách' %></strong>
+                        <div style="font-size:12px;color:var(--muted)"><%= new Date(q.created_at).toLocaleString('vi-VN') %></div>
+                      </div>
+                      <!-- Delete button for author or admin -->
+                      <% if (currentUser && (currentUser.id === q.user_id || currentUser.role === 'admin')) { %>
+                      <div style="position:relative">
+                        <button class="question-menu-btn" data-question-id="<%= q.id %>" style="background:none;border:none;cursor:pointer;padding:4px 8px;color:var(--muted);font-size:16px;transition:color 0.2s" title="Tuỳ chọn">⋯</button>
+                        <div class="question-menu-dropdown" data-question-id="<%= q.id %>" style="display:none;position:absolute;right:0;top:100%;background:var(--card);border:1px solid var(--border);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:100;min-width:120px">
+                          <button class="question-delete-btn" data-question-id="<%= q.id %>" style="width:100%;text-align:left;background:none;border:none;padding:8px 12px;color:var(--muted);cursor:pointer;font-size:13px;transition:all 0.2s;border-radius:6px">
+                            🗑️ Xoá
+                          </button>
+                        </div>
+                      </div>
+                      <% } %>
+                    </div>
+                    <div style="color:var(--muted);line-height:1.6"><%= q.body %></div>
+                  </div>
+                </div>
+              </div>
+            <% }) %>
+          <% } %>
+        </div>
+
+        <!-- Questions and Review Forms -->
+        <div id="review-form-container" style="display:none;margin-top:16px;border:1px solid var(--border);padding:12px;border-radius:8px;background:var(--card)">
+          <!-- Questions Form (for everyone) -->
+          <div id="questions-form-section" style="display:none;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)">
+            <h4 style="margin-top:0">Hỏi về sản phẩm</h4>
+            <% if (currentUser) { %>
+            <form id="question-form" method="post" action="/product/<%= product.id %>/question?_csrf=<%= csrfToken %>">
+              <input type="hidden" name="product_id" value="<%= product.id %>" />
+              <input type="hidden" name="author_name" value="<%= currentUser.name %>" />
+              <div style="margin-bottom:12px;display:flex;flex-direction:column;gap:8px">
+                <div style="display:flex;align-items:center;gap:8px;padding:8px;background:var(--bg);border-radius:6px">
+                  <span style="color:var(--muted)">Hỏi bằng tài khoản:</span>
+                  <strong style="color:var(--fg)"><%= currentUser.name %></strong>
+                </div>
+                <label>
+                  <span>Câu hỏi</span>
+                  <textarea name="body" rows="3" placeholder="Đặt câu hỏi về sản phẩm..." required></textarea>
+                </label>
+              </div>
+              <div style="display:flex;gap:8px;justify-content:flex-end">
+                <button class="btn primary" type="submit">Gửi câu hỏi</button>
+                <button type="button" class="btn-cancel-question btn secondary">Hủy</button>
+              </div>
+            </form>
+            <% } else { %>
+            <div style="padding:12px;color:var(--muted)">
+              <a class="btn primary" href="/login?redirect=<%= encodeURIComponent('/product/' + product.slug) %>">Đăng nhập để hỏi</a>
+              <div style="margin-top:8px">Bạn cần đăng nhập để gửi câu hỏi.</div>
+            </div>
+            <% } %>
+          </div>
+
+          <!-- Reviews Form (for those who purchased) -->
+          <div id="reviews-form-section" style="display:none">
+            <h4 style="margin-top:0">⭐ Gửi đánh giá</h4>
+            <% if (typeof userCanReview !== 'undefined' && userCanReview) { %>
+            <form id="review-form" method="post" action="/product/<%= product.id %>/review?_csrf=<%= csrfToken %>" enctype="multipart/form-data">
+              <input type="hidden" name="product_id" value="<%= product.id %>" />
+              <div style="display:flex;align-items:center;gap:8px;padding:8px;background:var(--bg);border-radius:6px;margin-bottom:12px">
+                <span style="color:var(--muted)">Đánh giá bằng tài khoản:</span>
+                <strong style="color:var(--fg)"><%= currentUser.name %></strong>
+              </div>
+              <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+                <label style="display:flex;flex-direction:column;gap:6px">
+                  <span>Đánh giá</span>
+                  <div id="review-stars-input" data-value="5" style="display:flex;gap:6px;font-size:20px;cursor:pointer">
+                    <span class="star" data-value="1">☆</span>
+                    <span class="star" data-value="2">☆</span>
+                    <span class="star" data-value="3">☆</span>
+                    <span class="star" data-value="4">☆</span>
+                    <span class="star" data-value="5">☆</span>
+                  </div>
+                  <input type="hidden" name="rating" id="rating-input" value="5" />
+                </label>
+
+                <label style="flex:1;display:flex;flex-direction:column">
+                  <span>Tiêu đề</span>
+                  <input type="text" name="title" placeholder="Tiêu đề ngắn (tùy chọn)" />
+                </label>
+              </div>
+
+              <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
+                <label>
+                  <span>Nội dung</span>
+                  <textarea name="body" rows="4" placeholder="Mô tả chi tiết cảm nhận, lợi/nhược điểm, v.v."></textarea>
+                </label>
+
+                <label>
+                  <span>Upload ảnh (tối đa 3)</span>
+                  <input type="file" name="images" id="review-images" accept="image/*" multiple />
+                </label>
+
+                <div style="display:flex;gap:8px;align-items:center;justify-content:space-between">
+                  <div style="display:flex;gap:8px;align-items:center">
+                    <label style="display:flex;align-items:center;gap:8px">
+                      <input type="checkbox" name="publish_anonymously" /> Gửi ẩn danh
+                    </label>
+                  </div>
+                  <div style="display:flex;gap:8px">
+                    <button class="btn primary" type="submit">Gửi đánh giá</button>
+                    <button type="button" id="cancel-review" class="btn secondary">Hủy</button>
+                  </div>
+                </div>
+              </div>
+            </form>
+            <% } else { %>
+              <div style="padding:12px;color:var(--muted)">
+                <% if (!currentUser) { %>
+                  <a class="btn primary" href="/login?redirect=<%= encodeURIComponent('/product/' + product.slug) %>">Đăng nhập để gửi</a>
+                  <div style="margin-top:8px">Bạn phải đăng nhập và mua sản phẩm để gửi đánh giá.</div>
+                <% } else if (currentUser && !userHasPurchased) { %>
+                  <div>Bạn cần mua sản phẩm này trước khi gửi đánh giá.</div>
+                <% } else if (currentUser && userHasReviewed) { %>
+                  <div>Bạn đã gửi đánh giá cho sản phẩm này. Cảm ơn!</div>
+                <% } else { %>
+                  <div>Bạn không có quyền gửi đánh giá cho sản phẩm này.</div>
+                <% } %>
+              </div>
+            <% } %>
+          </div>
         </div>
       </div>
     </div>
@@ -153,6 +457,32 @@
   color: var(--fg);
   line-height: 1.2;
 }
+
+.product-header-grid {
+  display:flex;
+  gap:18px;
+  align-items:flex-start;
+  justify-content:space-between;
+}
+.product-header-left { flex:1; }
+.product-header-right { display:flex;align-items:flex-start;flex-direction:column;gap:12px;min-width:220px;text-align:right }
+.product-subline { display:flex;align-items:center;gap:12px;margin-top:6px;color:var(--muted);flex-wrap:wrap }
+.rating-inline { display:flex;align-items:center;gap:12px }
+.avg-rating-big { display:flex;align-items:center;gap:8px;font-size:18px;color:var(--fg); }
+.avg-rating-big strong { font-weight:900; font-size:20px; letter-spacing:-0.3px; }
+.avg-rating-big .stars { color:#f59e0b; font-weight:800; text-shadow: 0 1px 0 rgba(255,255,255,0.06); }
+.rating-meta { font-size:13px;color:var(--muted) }
+.product-ids { font-size:13px;color:var(--muted) }
+.price-stock { display:flex;flex-direction:column;align-items:flex-end;gap:6px }
+.discounted-price { font-weight:800;color:var(--green);font-size:20px }
+.original-price { text-decoration:line-through;color:var(--muted);font-size:13px }
+.stock-state { font-size:13px;padding:6px 8px;border-radius:8px;border:1px solid var(--border); }
+.stock-state.in-stock { color:var(--green);border-color:rgba(16,185,129,0.12) }
+.stock-state.out-of-stock { color:var(--red);border-color:rgba(239,68,68,0.12) }
+.product-actions-compact { display:none;align-items:center;gap:8px }
+.wishlist-small { padding:8px 10px;border-radius:8px;background:transparent;border:1px solid var(--border) }
+.wishlist-small.active { background:rgba(239,68,68,0.1);color:var(--danger) }
+.add-to-cart-compact .btn { padding:8px 12px;border-radius:10px }
 
 .product-price {
   font-size: 24px;
@@ -327,6 +657,36 @@
   gap: 12px;
 }
 
+.badge {
+  display:inline-block;
+  padding:4px 8px;
+  border-radius:999px;
+  font-size:12px;
+  color:var(--muted);
+  border:1px solid var(--border);
+  background:transparent;
+  margin-left:8px;
+}
+.badge.verified {
+  background:linear-gradient(90deg, rgba(16,185,129,0.08), rgba(16,185,129,0.04));
+  color:var(--green);
+  border-color: rgba(16,185,129,0.18);
+}
+
+.review-stars { font-size:14px;color:var(--yellow); }
+  .review .btn.small { padding:6px 8px;font-size:12px;border-radius:8px }
+  .review .avatar { width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--border);font-weight:700;color:var(--fg); }
+  .review { padding:14px; }
+  .review .review-stars { font-size:14px;color:var(--yellow); letter-spacing:1px }
+  #leave-review-btn { padding:10px 14px;border-radius:10px;font-weight:700 }
+.review .btn.small + .btn.small { margin-left:6px }
+.review .up-count, .review .down-count { margin-left:6px;font-weight:700 }
+
+.review-image { width:120px; height:80px; object-fit:cover; border-radius:8px; border:1px solid var(--border); cursor:pointer; transition:transform .14s ease-in-out; }
+.review-image:hover { transform:translateY(-4px); box-shadow:0 8px 20px rgba(0,0,0,0.12); }
+
+/* hotline/contact removed from product header */
+
 .meta-item {
   display: flex;
   gap: 8px;
@@ -365,6 +725,9 @@
   .product-title {
     font-size: 24px;
   }
+
+  .product-header-right { min-width:0;text-align:left }
+  .product-subline { width:100% }
   
   .product-price {
     font-size: 20px;
@@ -373,11 +736,1056 @@
   .action-buttons {
     flex-direction: column;
   }
+
+  /* removed hotline/contact area */
   
   .product-features {
     grid-template-columns: 1fr;
   }
 }
+/* ===================================
+   PRODUCT DETAIL PAGE - OPTIMIZED CSS
+   =================================== */
+
+.product-detail {
+  display: grid;
+  grid-template-columns: 480px 1fr;
+  gap: 48px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 24px;
+}
+
+/* ===== GALLERY SECTION ===== */
+.product-gallery {
+  position: sticky;
+  top: 100px;
+  height: fit-content;
+}
+
+.product-image {
+  width: 100%;
+  height: 480px;
+  object-fit: cover;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.3s;
+}
+
+.product-image:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+/* ===== PRODUCT INFO ===== */
+.product-info {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Header Grid - Responsive Layout */
+.product-header-grid {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 24px;
+  background: var(--card);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.product-header-left {
+  flex: 1;
+}
+
+.product-header-right {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 240px;
+}
+
+/* Title & Meta */
+.product-title {
+  font-size: 32px;
+  font-weight: 800;
+  margin: 0 0 12px 0;
+  color: var(--fg);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.product-subline {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+/* Rating Display */
+.rating-inline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.avg-rating-big {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  /* On yellow pill backgrounds the text should be dark for legibility */
+  color: rgba(17,24,39,0.95);
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  padding: 8px 16px;
+  border-radius: 12px;
+  font-weight: 700;
+}
+
+.avg-rating-big strong { font-weight:900; font-size:18px; }
+
+.avg-rating-big .stars {
+  /* darker stars to increase contrast versus the yellow gradient */
+  color: rgba(17,24,39,0.7);
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+
+.rating-meta {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.product-ids {
+  font-size: 13px;
+  color: var(--muted);
+  padding: 6px 12px;
+  background: var(--bg);
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+/* Price & Stock */
+.price-stock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.discounted-price {
+  font-weight: 800;
+  color: var(--green);
+  font-size: 32px;
+  line-height: 1;
+}
+
+.original-price {
+  text-decoration: line-through;
+  color: var(--muted);
+  font-size: 16px;
+}
+
+.stock-state {
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stock-state.in-stock {
+  color: var(--green);
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.stock-state.out-of-stock {
+  color: var(--red);
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+/* Compact Actions */
+.product-actions-compact {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wishlist-small {
+  padding:10px 12px;
+  border-radius:12px;
+  background: var(--card);
+  border:2px solid var(--border);
+  color: var(--fg);
+  font-size:18px;
+  cursor:pointer;
+  transition: all 0.2s;
+}
+
+.wishlist-small:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: var(--danger);
+  transform: scale(1.05);
+}
+
+.wishlist-small.active {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.add-to-cart-compact .btn {
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+/* ===== PRICE SECTION (Duplicate, Hidden) ===== */
+.product-price {
+  display: none; /* Hidden vì đã có trong header-grid */
+}
+
+.product-stock {
+  display: none; /* Hidden vì đã có trong header-grid */
+}
+
+/* ===== DESCRIPTION ===== */
+.product-description {
+  background: var(--card);
+  padding: 24px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.product-description h3 {
+  font-size: 18px;
+  margin: 0 0 12px 0;
+  color: var(--fg);
+  font-weight: 700;
+}
+
+.product-description p {
+  margin: 0;
+  line-height: 1.8;
+  color: var(--muted);
+}
+
+/* ===== ACTION BUTTONS ===== */
+.product-actions {
+  background: var(--card);
+  padding: 24px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.action-buttons {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.wishlist-form {
+  margin: 0;
+}
+
+ .wishlist-btn-large {
+  /* Use theme-aware card color instead of literal white to avoid washed-out buttons in dark mode */
+  background: var(--card);
+  border: 2px solid var(--border);
+  color: var(--muted);
+  padding: 16px;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.wishlist-btn-large:hover {
+  /* Slightly stronger hover so the heart button stands out on both light and dark themes */
+  background: rgba(239, 68, 68, 0.12);
+  border-color: var(--danger);
+  color: var(--danger);
+  transform: scale(1.05);
+}
+
+.wishlist-btn-large.active {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.add-to-cart-form {
+  margin: 0;
+}
+
+.btn.large {
+  padding: 16px 32px;
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+  width: 100%;
+  border-radius: 12px;
+  transition: all 0.2s;
+  background: linear-gradient(135deg, var(--primary) 0%, #15803d 100%);
+  color: white;
+  border: none;
+  box-shadow: 0 4px 14px rgba(22, 163, 74, 0.3);
+  cursor: pointer;
+}
+
+.btn.large:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(22, 163, 74, 0.4);
+}
+
+.btn.disabled {
+  opacity: 0.75; /* keep slightly visible but clearly disabled */
+  cursor: not-allowed;
+  /* Use muted / border tone that works in light & dark themes */
+  background: linear-gradient(180deg, rgba(156,163,175,0.08), rgba(156,163,175,0.05));
+  border: 1px solid rgba(156,163,175,0.12);
+  color: var(--muted);
+  box-shadow: none;
+}
+
+.btn.secondary {
+  /* Secondary buttons should respect the current theme and keep readable contrast */
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  box-shadow: none;
+}
+
+.btn.secondary:hover {
+  /* Hover to a subtle card-hover tone for both themes */
+  background: var(--card-hover);
+  transform: translateY(-1px);
+}
+
+.admin-product-actions {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+/* ===== FEATURES GRID ===== */
+.product-features {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  background: var(--card);
+  padding: 24px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px;
+  background: var(--bg);
+  border-radius: 12px;
+  transition: all 0.2s;
+}
+
+.feature:hover {
+  background: rgba(22, 163, 74, 0.05);
+  transform: translateY(-2px);
+}
+
+.feature-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.feature-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.feature-content strong {
+  color: var(--fg);
+  font-size: 14px;
+  font-weight: 700;
+  display: block;
+}
+
+.feature-content span {
+  color: var(--fg-secondary);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* ===== EXTRA SECTION (FAQ + CHAT + REVIEWS) ===== */
+.product-extra {
+  margin-top: 20px;
+}
+
+.faq-and-chat {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+/* FAQ */
+.faq {
+  flex: 1;
+  min-width: 300px;
+  background: var(--card);
+  padding: 24px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.faq h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  color: var(--fg);
+}
+
+.faq-item {
+  border-bottom: 1px solid var(--border);
+  padding: 14px 0;
+}
+
+.faq-item:last-child {
+  border-bottom: none;
+}
+
+.faq-q {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--fg);
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.faq-q::after {
+  content: '▼';
+  font-size: 11px;
+  color: var(--muted);
+  transition: transform 0.2s;
+}
+
+.faq-q.active::after {
+  transform: rotate(180deg);
+}
+
+.faq-a {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.faq-a.active {
+  max-height: 200px;
+  margin-top: 10px;
+}
+
+/* Chat Widgets */
+.chat-widgets {
+  width: 280px;
+  background: var(--card);
+  padding: 24px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.chat-widgets h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  color: var(--fg);
+}
+
+.chat-links {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chat-links .btn {
+  padding: 12px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  /* theme-aware button background so it looks correct in dark & light themes */
+  background: var(--card);
+  color: var(--fg);
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  text-align: center;
+  transition: all 0.2s;
+  display: block;
+}
+
+.chat-links .btn:hover {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+  transform: translateY(-2px);
+}
+
+/* ===== REVIEWS SECTION ===== */
+.reviews-section {
+  background: var(--card);
+  padding: 24px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  margin-top: 20px;
+}
+
+.reviews-section h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--fg);
+  margin: 0;
+}
+
+.review-summary-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 16px;
+  padding: 20px;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border-radius: 12px;
+  flex-wrap: wrap;
+}
+
+.big-rating {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.big-rating > div:first-child {
+  font-weight: 900; /* heavier so numbers read clearly */
+  font-size: 32px;
+  /* Use a high-contrast color that works over the yellow banner in both themes */
+  color: rgba(17,24,39,0.95); /* near-black for maximum legibility */
+  letter-spacing: -0.25px; /* tighter numerals look better */
+  text-shadow: 0 1px 0 rgba(255,255,255,0.06); /* subtle lift on any background */
+}
+
+/* Make star icons in the banner darker to increase contrast against light/yellow backgrounds */
+.review-summary-banner .big-rating .stars,
+.review-summary-banner .big-rating > div:nth-child(2) {
+  color: rgba(17,24,39,0.75);
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+#filter-rating {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  font-size: 14px;
+  color: var(--fg);
+  background: var(--card);
+  cursor: pointer;
+  font-weight: 500;
+}
+
+#leave-review-btn {
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+/* Review Cards */
+.review {
+  border: 1px solid var(--border);
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  background: var(--card);
+  transition: all 0.2s;
+}
+
+.review:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  transform: translateY(-2px);
+}
+
+.review .avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--primary) 0%, #15803d 100%);
+  font-weight: 700;
+  color: white;
+  font-size: 18px;
+}
+
+.review .review-stars {
+  font-size: 16px;
+  color: var(--yellow);
+  letter-spacing: 2px;
+}
+
+review .btn.small {
+  padding: 6px 12px;
+  font-size: 13px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  transition: all 0.2s;
+}
+
+.review .btn.small:hover {
+  background: var(--bg);
+  border-color: var(--primary);
+}
+
+.review-image {
+  width: 120px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.review-image:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-left: 8px;
+}
+
+.badge.verified {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--green);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+/* ===== META ===== */
+.product-meta {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.meta-item {
+  display: flex;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.meta-item strong {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.meta-item a {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.meta-item a:hover {
+  text-decoration: underline;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 968px) {
+  .product-detail {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding: 16px;
+  }
+  
+  .product-gallery {
+    position: static;
+  }
+  
+  .product-image {
+    height: 360px;
+  }
+  
+  .product-title {
+    font-size: 24px;
+  }
+
+  .product-header-grid {
+    flex-direction: column;
+  }
+
+  .product-header-right {
+    width: 100%;
+    min-width: 0;
+    align-items: flex-start;
+  }
+
+  .price-stock {
+    align-items: flex-start;
+  }
+
+  .discounted-price {
+    font-size: 28px;
+  }
+  
+  .product-features {
+    grid-template-columns: 1fr;
+  }
+
+  .product-actions {
+    position: static;
+  }
+
+  /* show compact action controls on tablet/mobile */
+  .product-actions-compact { display:flex }
+
+  .action-buttons {
+    grid-template-columns: auto 1fr;
+  }
+
+  .faq-and-chat {
+    flex-direction: column;
+  }
+
+  .chat-widgets {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .product-subline {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .action-buttons {
+    grid-template-columns: 1fr;
+  }
+
+  .wishlist-btn-large {
+    display: none; /* Hide large wishlist on mobile, keep compact */
+  }
+
+  .product-actions-compact {
+    width: 100%;
+  }
+
+  .add-to-cart-compact {
+    flex: 1;
+  }
+}
+/* ============================================
+   WISHLIST BUTTON ANIMATIONS - PRODUCT DETAIL
+   ============================================ */
+
+/* Small Wishlist Button (Compact) */
+.wishlist-small {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--card);
+  border: 2px solid var(--border);
+  color: var(--fg);
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.wishlist-small::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.2);
+  transform: translate(-50%, -50%);
+  transition: width 0.4s, height 0.4s;
+}
+
+.wishlist-small:hover::before {
+  width: 100px;
+  height: 100px;
+}
+
+.wishlist-small:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: #ef4444;
+  color: #ef4444;
+  transform: scale(1.08);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.wishlist-small.active {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  border-color: #dc2626;
+  color: white;
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.5);
+  animation: heartBeat 0.5s ease-in-out;
+}
+
+.wishlist-small.active:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  box-shadow: 0 6px 24px rgba(239, 68, 68, 0.6);
+}
+
+/* Large Wishlist Button */
+.wishlist-btn-large {
+  background: var(--card);
+  border: 2px solid var(--border);
+  color: var(--muted);
+  padding: 16px;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.wishlist-btn-large::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at center, rgba(239, 68, 68, 0.15) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+
+.wishlist-btn-large:hover::before {
+  opacity: 1;
+}
+
+.wishlist-btn-large:hover {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: #ef4444;
+  color: #ef4444;
+  transform: scale(1.05) translateY(-2px);
+  box-shadow: 0 8px 20px rgba(239, 68, 68, 0.3);
+}
+
+.wishlist-btn-large.active {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  border-color: #dc2626;
+  color: white;
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.5);
+  animation: heartBeat 0.6s ease-in-out;
+}
+
+.wishlist-btn-large.active:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  box-shadow: 0 10px 30px rgba(239, 68, 68, 0.6);
+}
+
+/* Heart Beat Animation */
+@keyframes heartBeat {
+  0%, 100% {
+    transform: scale(1);
+  }
+  15% {
+    transform: scale(1.25);
+  }
+  30% {
+    transform: scale(1.1);
+  }
+  45% {
+    transform: scale(1.2);
+  }
+  60% {
+    transform: scale(1.05);
+  }
+}
+
+/* Pulse Animation for Active State */
+.wishlist-small.active,
+.wishlist-btn-large.active {
+  animation: heartBeat 0.5s ease-in-out, pulse 2s ease-in-out infinite 1s;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    box-shadow: 0 6px 24px rgba(239, 68, 68, 0.6);
+  }
+}
+
+/* Loading State */
+.wishlist-small:disabled,
+.wishlist-btn-large:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  transform: none !important;
+}
+
+/* FAQ Accordion Styles */
+.faq-q {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--fg);
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: color 0.2s;
+}
+
+.faq-q:hover {
+  color: var(--primary);
+}
+
+.faq-q::after {
+  content: '▼';
+  font-size: 11px;
+  color: var(--muted);
+  transition: transform 0.3s;
+}
+
+.faq-q.active::after {
+  transform: rotate(180deg);
+  color: var(--primary);
+}
+
+.faq-a {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 0;
+}
+
+.faq-a.active {
+  max-height: 300px;
+  padding-top: 10px;
+}
+
+/* Star Rating Input */
+#review-stars-input {
+  display: flex;
+  gap: 6px;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+#review-stars-input .star {
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+#review-stars-input .star:hover {
+  transform: scale(1.2);
+}
+
+/* Review Form Container */
+#review-form-container {
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive Adjustments */
+@media (max-width: 640px) {
+  .wishlist-small {
+    padding: 8px 10px;
+    font-size: 16px;
+  }
+  
+  .wishlist-btn-large {
+    padding: 14px;
+    font-size: 18px;
+  }
+}
 </style>
+
+<script>
+  // Expose current product id and review permissions for client-side review API calls
+  // eslint-disable-next-line no-undef
+  window.currentProductId = <%= product && product.id ? product.id : null %>;
+  // eslint-disable-next-line no-undef
+  window.userCanReview = <%= typeof userCanReview !== 'undefined' ? (userCanReview ? true : false) : false %>;
+  // eslint-disable-next-line no-undef
+  window.userHasPurchased = <%= typeof userHasPurchased !== 'undefined' ? (userHasPurchased ? true : false) : false %>;
+  window.userHasReviewed = <%= typeof userHasReviewed !== 'undefined' ? (userHasReviewed ? true : false) : false %>;
+
+  
+</script>
 
 

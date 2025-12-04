@@ -10,10 +10,11 @@
     "backup": "node data/backup-database.js",
     "restore": "node data/restore-database.js",
     "export": "node data/export-database.js",
-    "check-orders": "node check-orders.js",
+    "check-orders": "node data/check-orders.js",
     "sync-to-files": "node data/sync-to-files.js",
     "sync-to-postgresql": "node data/sync-to-postgresql.js",
-    "create-user-carts-table": "node data/create-user-carts-table.js"
+    "create-user-carts-table": "node data/create-user-carts-table.js",
+    "generate-keys": "node data/generate-keys.js"
   },
   "keywords": [],
   "author": "",
