@@ -37,31 +37,135 @@ npm install
 
 ### 3. Cấu hình môi trường
 
-Tạo file `.env` trong thư mục gốc:
+Tạo file `.env` trong thư mục gốc với các biến sau:
+
+#### 📝 Ví dụ file `.env` đầy đủ
 
 ```env
-# PostgreSQL
+# ============================================
+# PostgreSQL Configuration
+# ============================================
 PG_HOST=localhost
 PG_PORT=5432
 PG_DATABASE=safekeys
 PG_USER=postgres
-PG_PASSWORD=your_password
+PG_PASSWORD=your_database_password
 
-# Session
-SESSION_SECRET=your-secret-key-change-this
-
-# MoMo Payment (optional)
-MOMO_ACCESS_KEY=your_momo_access_key
-MOMO_SECRET_KEY=your_momo_secret_key
-
-# Google OAuth (optional)
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-
-# Server
+# ============================================
+# Server Configuration
+# ============================================
 PORT=3000
 NODE_ENV=development
+
+# ============================================
+# Session & Security
+# ============================================
+SESSION_SECRET=your_session_secret_key_here_change_in_production
+
+# ============================================
+# MoMo Payment Configuration
+# ============================================
+MOMO_ACCESS_KEY=your_momo_access_key_here
+MOMO_SECRET_KEY=your_momo_secret_key_here
+MOMO_PARTNER_CODE=MOMO
+MOMO_REQUEST_TYPE=captureWallet
+MOMO_LANG=vi
+
+# ============================================
+# Google OAuth (Optional - để trống nếu không dùng)
+# ============================================
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/callback
+
+# ============================================
+# SMTP Configuration for sending emails
+# ============================================
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your_email@gmail.com
+SMTP_PASS=your_app_password_here
+
+# ============================================
+# OTP Configuration
+# ============================================
+OTP_EXPIRE_SECONDS=120
 ```
+
+#### 📌 Chi tiết các biến môi trường
+
+**PostgreSQL Configuration:**
+| Biến | Mô tả | Ví dụ | Mặc định |
+|------|-------|-------|---------|
+| `PG_HOST` | Host của PostgreSQL server | `localhost` | `localhost` |
+| `PG_PORT` | Port của PostgreSQL | `5432` | `5432` |
+| `PG_DATABASE` | Tên database | `safekeys` | `safekeys` |
+| `PG_USER` | Username PostgreSQL | `postgres` | `postgres` |
+| `PG_PASSWORD` | Password PostgreSQL | `123456` | `123456` |
+
+**Server Configuration:**
+| Biến | Mô tả | Giá trị |
+|------|-------|--------|
+| `PORT` | Cổng chạy server | `3000` (hoặc cổng khác) |
+| `NODE_ENV` | Môi trường chạy | `development` hoặc `production` |
+
+**MoMo Payment:**
+| Biến | Mô tả | Giá trị mặc định |
+|------|-------|-----------------|
+| `MOMO_ACCESS_KEY` | Access key MoMo | `F8BBA842ECF85` (test) |
+| `MOMO_SECRET_KEY` | Secret key MoMo | `K951B6PE1waDMi640xX08PD3vg6EkVlz` (test) |
+| `MOMO_PARTNER_CODE` | Mã đối tác MoMo | `MOMO` |
+| `MOMO_REQUEST_TYPE` | Loại yêu cầu | `captureWallet` |
+| `MOMO_LANG` | Ngôn ngữ | `vi` (tiếng Việt) |
+
+**Google OAuth (Tùy chọn):**
+- Để trống nếu không dùng Google login
+- Lấy từ Google Cloud Console
+
+**SMTP (Email):**
+| Biến | Mô tả |
+|------|-------|
+| `SMTP_HOST` | Server SMTP (ví dụ: gmail) |
+| `SMTP_PORT` | Port SMTP (gmail: 587) |
+| `SMTP_SECURE` | Dùng TLS/SSL (false = TLS, true = SSL) |
+| `SMTP_USER` | Email để gửi |
+| `SMTP_PASS` | Mật khẩu hoặc App password |
+
+#### ⚙️ Hướng dẫn cấu hình cho từng môi trường
+
+**Development (localhost):**
+```env
+NODE_ENV=development
+PORT=3000
+PG_HOST=localhost
+# Dùng test keys của MoMo
+```
+
+**Production (Server):**
+```env
+NODE_ENV=production
+PORT=3000
+PG_HOST=your_server_ip_or_domain
+SESSION_SECRET=your-long-random-secret-key-here-change-this
+# Dùng production keys từ MoMo
+MOMO_ACCESS_KEY=your_production_access_key
+MOMO_SECRET_KEY=your_production_secret_key
+SMTP_USER=your_email@gmail.com
+SMTP_PASS=your_app_password
+```
+
+#### 🔑 Cách lấy MoMo Production Keys:
+1. Đăng ký tài khoản Merchant tại MoMo
+2. Vào MoMo Developer Dashboard
+3. Copy `ACCESS_KEY` và `SECRET_KEY` từ phần cài đặt
+4. Cập nhật vào file `.env`
+
+#### 📧 Cách lấy Gmail App Password:
+1. Bật 2-factor authentication trên tài khoản Gmail
+2. Vào https://myaccount.google.com/apppasswords
+3. Chọn "Mail" và "Windows Computer" (hoặc tương tự)
+4. Lấy mật khẩu 16 ký tự, cập nhật vào `SMTP_PASS`
 
 ### 4. Tạo database
 

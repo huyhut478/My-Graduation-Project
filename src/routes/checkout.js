@@ -23,11 +23,11 @@ function getUserId(req) {
 }
 
 // MoMo Configuration (Test Environment)
-const MOMO_ACCESS_KEY = "F8BBA842ECF85";
-const MOMO_SECRET_KEY = "K951B6PE1waDMi640xX08PD3vg6EkVlz";
-const MOMO_PARTNER_CODE = "MOMO";
-const MOMO_REQUEST_TYPE = "captureWallet";
-const MOMO_LANG = "vi";
+const MOMO_ACCESS_KEY = process.env.MOMO_ACCESS_KEY || "F8BBA842ECF85";
+const MOMO_SECRET_KEY = process.env.MOMO_SECRET_KEY || "K951B6PE1waDMi640xX08PD3vg6EkVlz";
+const MOMO_PARTNER_CODE = process.env.MOMO_PARTNER_CODE || "MOMO";
+const MOMO_REQUEST_TYPE = process.env.MOMO_REQUEST_TYPE || "captureWallet";
+const MOMO_LANG = process.env.MOMO_LANG || "vi";
 
 // Helper functions
 function getBaseUrl(req) {
@@ -335,7 +335,7 @@ router.post('/api/momo-callback', async (req, res) => {
                 if (availableKeys.length > 0) {
                   for (let i = 0; i < availableKeys.length; i++) {
                     const productKey = availableKeys[i];
-                    
+
                     // Insert into order_keys
                     const keyInsertResult = await client.query(
                       'INSERT INTO order_keys (order_item_id, key_value) VALUES ($1, $2) RETURNING id',
@@ -360,7 +360,7 @@ router.post('/api/momo-callback', async (req, res) => {
                     }
                   }
                   console.log(`🔑 Assigned ${availableKeys.length} key(s) for order_item #${orderItem.id}, product #${orderItem.product_id}`);
-                  
+
                   if (availableKeys.length < orderItem.quantity) {
                     console.warn(`⚠️ Product #${orderItem.product_id} has only ${availableKeys.length} available keys but order needs ${orderItem.quantity}`);
                   }
