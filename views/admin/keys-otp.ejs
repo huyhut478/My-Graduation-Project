@@ -1,0 +1,43 @@
+<div class="admin-otp-container">
+  <div class="admin-otp-header">
+    <h1>Xác thực OTP để truy cập Quản lý Key</h1>
+    <p class="header-subtitle">Vui lòng nhận mã OTP qua email quản trị để tiếp tục truy cập trang quản lý key.</p>
+  </div>
+
+  <% if (typeof flash !== 'undefined' && flash.error && flash.error.length) { %>
+    <div class="error-message"><%= flash.error.join('<br/>') %></div>
+  <% } %>
+
+  <div class="otp-box">
+    <form method="POST" action="/admin/keys/request-otp" class="verification-form" style="display:inline-block;margin-bottom:12px;">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <p class="muted">Mã OTP sẽ được gửi tới email quản trị (<strong><%= (user && user.email) ? user.email : '—' %></strong>).</p>
+      <button type="submit" class="btn secondary">Gửi mã OTP tới email</button>
+    </form>
+
+    <% if (showOtpInput) { %>
+      <form method="POST" action="/admin/keys/verify-otp" class="verification-form" style="margin-top:12px;">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="form-group">
+          <label for="otp">Mã OTP</label>
+          <input type="text" id="otp" name="otp" required autofocus class="password-input" placeholder="Nhập mã OTP..." />
+        </div>
+        <button type="submit" class="btn primary">Xác thực OTP</button>
+      </form>
+    <% } %>
+
+    <form method="POST" action="/admin/keys/logout" style="margin-top:12px;">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <button type="submit" class="btn secondary">Hủy /Quay lại</button>
+    </form>
+  </div>
+</div>
+
+<style>
+.admin-otp-container { max-width: 900px; margin: 0 auto; padding: 30px; }
+.admin-otp-header h1 { margin: 0 0 8px 0; }
+.admin-otp-header .header-subtitle { color: var(--muted); margin-bottom: 20px; }
+.otp-box { background: var(--card); border: 1px solid var(--border); padding: 24px; border-radius: 12px; }
+.error-message { background: rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.12); color:#ef4444; padding:8px 12px; border-radius:8px; margin-bottom:12px; }
+.password-input { width: 320px; padding:10px 12px; border-radius:8px; border:1px solid var(--border); }
+</style>

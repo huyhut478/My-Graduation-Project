@@ -85,6 +85,28 @@ export function setupOrderRoutes(app, {
                 }
             }
 
+            // Compute available (unassigned) product_keys per product for display hints
+            const availableKeysByProduct = {};
+            try {
+                // Collect product_ids that appear in orders
+                const productIds = new Set();
+                for (const list of Object.values(itemsByOrder)) {
+                    for (const it of list) productIds.add(it.product_id);
+                }
+                const pidArray = Array.from(productIds);
+                if (pidArray.length > 0) {
+                    const availRes = await pool.query(
+                        `SELECT product_id, COUNT(*) as available FROM product_keys WHERE product_id = ANY($1) AND deleted_at IS NULL GROUP BY product_id`,
+                        [pidArray]
+                    );
+                    for (const r of availRes.rows) {
+                        availableKeysByProduct[r.product_id] = parseInt(r.available, 10);
+                    }
+                }
+            } catch (e) {
+                logger.error('Error computing availableKeysByProduct:', e);
+            }
+
             const keyDisplayTitle = await getSetting('key_display_title') || '🔑 Key của bạn';
             const keyDisplayMessage = await getSetting('key_display_message') || 'Key đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư spam nếu không thấy.';
 
@@ -94,6 +116,7 @@ export function setupOrderRoutes(app, {
                 completedOrders,
                 itemsByOrder,
                 keysByOrderItem,
+                availableKeysByProduct,
                 keyDisplayTitle,
                 keyDisplayMessage,
                 needsPasswordVerification: false
@@ -204,9 +227,23 @@ export function setupOrderRoutes(app, {
                 const keysResult = await pool.query('SELECT key_value FROM order_keys WHERE order_item_id = $1 ORDER BY id', [item.id]);
                 if (keysResult.rows && keysResult.rows.length > 0) keysByOrderItem[item.id] = keysResult.rows.map(k => k.key_value);
             }
+            // Compute available keys for these products to help template messaging
+            const availableKeysByProduct = {};
+            try {
+                const productIds = items.map(i => i.product_id);
+                if (productIds.length > 0) {
+                    const availRes = await pool.query(
+                        `SELECT product_id, COUNT(*) as available FROM product_keys WHERE product_id = ANY($1) AND deleted_at IS NULL GROUP BY product_id`,
+                        [productIds]
+                    );
+                    for (const r of availRes.rows) availableKeysByProduct[r.product_id] = parseInt(r.available, 10);
+                }
+            } catch (e) {
+                logger.error('Error computing availableKeysByProduct for order-keys page:', e);
+            }
             const keyDisplayTitle = await getSetting('key_display_title') || '🔑 Key của bạn';
             const keyDisplayMessage = await getSetting('key_display_message') || 'Key đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư spam nếu không thấy.';
-            res.render('order-keys', { title: `Key giao dịch #${orderId} - SafeKeyS`, order, items, keysByOrderItem, keyDisplayTitle, keyDisplayMessage });
+            res.render('order-keys', { title: `Key giao dịch #${orderId} - SafeKeyS`, order, items, keysByOrderItem, availableKeysByProduct, keyDisplayTitle, keyDisplayMessage });
         } catch (error) {
             logger.error('Error loading order keys:', error);
             req.flash('error', 'Có lỗi xảy ra khi tải key giao dịch');

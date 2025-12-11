@@ -1,6 +1,6 @@
 <div class="admin-products">
   <h1>Quản lý sản phẩm</h1>
-  
+
   <div class="product-form-card">
     <h2>Thêm sản phẩm mới</h2>
     <form action="/admin/products?_csrf=<%= csrfToken %>" method="post" class="product-form">
@@ -9,35 +9,37 @@
           <label for="title">Tiêu đề sản phẩm *</label>
           <input type="text" id="title" name="title" placeholder="Ví dụ: Windows 11 Pro Key" required />
         </div>
-        
+
         <div class="form-group">
           <label for="slug">Slug (URL) *</label>
           <input type="text" id="slug" name="slug" placeholder="windows-11-pro-key" required />
           <small class="form-hint">Slug sẽ tự động được tạo từ tiêu đề nếu để trống</small>
         </div>
-        
+
         <div class="form-group">
           <label for="category_id">Danh mục</label>
           <select id="category_id" name="category_id">
             <option value="">-- Chọn danh mục --</option>
-            <% categories.forEach(c => { %>
-              <option value="<%= c.id %>"><%= c.name %></option>
-            <% }) %>
+            <% categories.forEach(c=> { %>
+              <option value="<%= c.id %>">
+                <%= c.name %>
+              </option>
+              <% }) %>
           </select>
         </div>
-        
+
         <div class="form-group">
           <label for="price_vnd">Giá (VND) *</label>
           <input type="number" id="price_vnd" name="price_vnd" placeholder="399000" min="0" step="1" required />
           <small class="form-hint">Nhập giá bằng VND (ví dụ: 399000 cho 399.000 VND)</small>
         </div>
-        
+
         <div class="form-group">
           <label for="stock">Tồn kho</label>
           <input type="number" id="stock" name="stock" placeholder="100" min="0" value="0" />
           <small class="form-hint">Số lượng sản phẩm có sẵn</small>
         </div>
-        
+
         <div class="form-group full-width">
           <label for="image">URL ảnh sản phẩm</label>
           <input type="url" id="image" name="image" placeholder="https://example.com/image.jpg" />
@@ -49,26 +51,36 @@
           <input type="url" id="download_link" name="download_link" placeholder="https://example.com/file.zip" />
           <small class="form-hint">Đường dẫn đến file tải (ví dụ: link Google Drive, OneDrive, Mega, ...)</small>
         </div>
-        
+
         <div class="form-group full-width">
           <label for="description">Mô tả sản phẩm</label>
           <textarea id="description" name="description" rows="4" placeholder="Mô tả chi tiết về sản phẩm..."></textarea>
         </div>
-        
+
         <div class="form-group">
           <label for="discount_percent">% Khuyến mãi</label>
-          <input type="number" id="discount_percent" name="discount_percent" placeholder="0" min="0" max="100" step="1" value="0" />
+          <input type="number" id="discount_percent" name="discount_percent" placeholder="0" min="0" max="100" step="1"
+            value="0" />
           <small class="form-hint">Nhập % khuyến mãi (0-100). Ví dụ: 20 là giảm 20%.</small>
         </div>
       </div>
-      
+
       <div class="form-actions">
         <button type="submit" class="btn primary large">
-          <span>➕</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
           Thêm sản phẩm
         </button>
         <button type="reset" class="btn secondary">
-          <svg class="icon-refresh" viewBox="0 0 512 512" width="16" height="16" aria-hidden="true" style="vertical-align:middle;margin-right:6px;"><path d="M492 8h-10c-6.627 0-12 5.373-12 12v110.627C426.929 57.261 347.224 8 256 8 123.228 8 14.824 112.338 8.31 243.493 7.971 250.311 13.475 256 20.301 256h10.016c6.353 0 11.646-4.949 11.977-11.293C48.157 132.216 141.097 42 256 42c82.862 0 154.737 47.077 190.289 116H332c-6.627 0-12 5.373-12 12v10c0 6.627 5.373 12 12 12h160c6.627 0 12-5.373 12-12V20c0-6.627-5.373-12-12-12zm-.301 248h-10.015c-6.352 0-11.647 4.949-11.977 11.293C463.841 380.158 370.546 470 256 470c-82.608 0-154.672-46.952-190.299-116H180c6.627 0 12-5.373 12-12v-10c0-6.627-5.373-12-12-12H20c-6.627 0-12 5.373-12 12v160c0 6.627 5.373 12 12 12h10c6.627 0 12-5.373 12-12V381.373C85.071 454.739 164.777 504 256 504c132.773 0 241.176-104.338 247.69-235.493.339-6.818-5.165-12.507-11.991-12.507z" fill="currentColor"></path></svg>
+          <svg class="icon-refresh" viewBox="0 0 512 512" width="16" height="16" aria-hidden="true"
+            style="vertical-align:middle;margin-right:6px;">
+            <path
+              d="M492 8h-10c-6.627 0-12 5.373-12 12v110.627C426.929 57.261 347.224 8 256 8 123.228 8 14.824 112.338 8.31 243.493 7.971 250.311 13.475 256 20.301 256h10.016c6.353 0 11.646-4.949 11.977-11.293C48.157 132.216 141.097 42 256 42c82.862 0 154.737 47.077 190.289 116H332c-6.627 0-12 5.373-12 12v10c0 6.627 5.373 12 12 12h160c6.627 0 12-5.373 12-12V20c0-6.627-5.373-12-12-12zm-.301 248h-10.015c-6.352 0-11.647 4.949-11.977 11.293C463.841 380.158 370.546 470 256 470c-82.608 0-154.672-46.952-190.299-116H180c6.627 0 12-5.373 12-12v-10c0-6.627-5.373-12-12-12H20c-6.627 0-12 5.373-12 12v160c0 6.627 5.373 12 12 12h10c6.627 0 12-5.373 12-12V381.373C85.071 454.739 164.777 504 256 504c132.773 0 241.176-104.338 247.69-235.493.339-6.818-5.165-12.507-11.991-12.507z"
+              fill="currentColor"></path>
+          </svg>
           Đặt lại
         </button>
       </div>
@@ -76,560 +88,577 @@
   </div>
 
   <div class="products-list-card">
-    <h2>📋 Danh sách sản phẩm</h2>
-    <% if (!products || products.length === 0) { %>
+    <h2>Danh sách sản phẩm</h2>
+    <% if (!products || products.length===0) { %>
       <p class="muted">Chưa có sản phẩm nào. Hãy thêm sản phẩm đầu tiên!</p>
-    <% } else { %>
-      <div class="products-table-wrapper">
-        <table class="products-table">
-          <thead>
-            <tr>
-              <th>Sản phẩm</th>
-              <th>Danh mục</th>
-              <th class="right">Giá</th>
-              <th class="center">Tồn kho</th>
-              <th class="center">Nổi bật</th>
-              <th class="center">Trạng thái</th>
-              <th class="center">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% products.forEach(p => { %>
+      <% } else { %>
+        <div class="products-table-wrapper">
+          <table class="products-table">
+            <thead>
               <tr>
-                <td>
-                  <div class="product-cell">
-                    <img src="<%= p.image || '/img/placeholder.jpg' %>" alt="<%= p.title %>" class="product-thumb" loading="lazy" decoding="async" />
-                    <div class="product-info-cell">
-                      <a href="/product/<%= p.slug %>" class="product-title-link"><%= p.title %></a>
-                      <span class="product-slug">/<%= p.slug %></span>
-                    </div>
-                  </div>
-                </td>
-                <td>
-                  <span class="category-badge"><%= p.category_name || '-' %></span>
-                </td>
-                <td class="right">
-                  <% if (p.discount_percent && Number(p.discount_percent) > 0) { %>
-                    <% const orig = (p.price_cents/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'});
-                       const discountedCents = Math.round(p.price_cents * (100 - Number(p.discount_percent)) / 100);
-                       const discounted = (discountedCents/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'});
-                    %>
-                    <div class="price-with-discount">
-                      <span class="price-original" style="text-decoration:line-through;color:var(--muted)"><%= orig %></span>
-                      <span class="price-discounted" style="color:var(--green);margin-left:8px;font-weight:700"><%= discounted %></span>
-                      <span class="discount-pill small">-<%= p.discount_percent %>%</span>
-                    </div>
-                  <% } else { %>
-                    <span class="price"><%= (p.price_cents/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) %></span>
-                  <% } %>
-                </td>
-                <td class="center">
-                  <span class="stock-badge <%= p.stock > 0 ? 'in-stock' : 'out-of-stock' %>">
-                    <%= p.stock %>
-                  </span>
-                </td>
-                <td class="center">
-                  <button class="btn-featured <%= p.featured ? 'featured-active' : '' %>" 
-                          onclick="toggleFeatured(<%= p.id %>, '<%= csrfToken %>')" 
-                          type="button" 
-                          title="<%= p.featured ? 'Bỏ đánh dấu nổi bật' : 'Đánh dấu nổi bật' %>"
-                          data-product-id="<%= p.id %>">
-                    <%= p.featured ? '🔥' : '⚪' %>
-                  </button>
-                </td>
-                <td class="center">
-                  <span class="status-badge <%= p.active ? 'active' : 'inactive' %> status-badge-<%= p.id %>">
-                    <%= p.active ? '✅ Hiển thị' : '❌ Ẩn' %>
-                  </span>
-                </td>
-                <td>
-                  <div class="action-buttons">
-                    <button class="btn small" 
-                            onclick="toggleActive(<%= p.id %>, '<%= csrfToken %>')" 
-                            type="button"
-                            title="<%= p.active ? 'Ẩn' : 'Hiện' %>"
-                            data-product-id="<%= p.id %>">
-                      <%= p.active ? '👁️' : '👁️‍🗨️' %>
-                    </button>
-                    <a class="btn small" href="/admin/products/<%= p.id %>/edit" title="Sửa">
-                      ✏️
-                    </a>
-                    <button class="btn small danger" 
-                            onclick="deleteProduct(<%= p.id %>, '<%= csrfToken %>', '<%= p.title %>')" 
-                            type="button"
-                            title="Xóa"
-                            data-product-id="<%= p.id %>">
-                      🗑️
-                    </button>
-                  </div>
-                </td>
+                <th>Sản phẩm</th>
+                <th>Danh mục</th>
+                <th class="right">Giá</th>
+                <th class="center">Tồn kho</th>
+                <th class="center">Nổi bật</th>
+                <th class="center">Trạng thái</th>
+                <th class="center">Thao tác</th>
               </tr>
-            <% }) %>
-          </tbody>
-        </table>
-      </div>
-    <% } %>
+            </thead>
+            <tbody>
+              <% products.forEach(p=> { %>
+                <tr>
+                  <td>
+                    <div class="product-cell">
+                      <img src="<%= p.image || '/img/placeholder.jpg' %>" alt="<%= p.title %>" class="product-thumb"
+                        loading="lazy" decoding="async" />
+                      <div class="product-info-cell">
+                        <a href="/product/<%= p.slug %>" class="product-title-link">
+                          <%= p.title %>
+                        </a>
+                        <span class="product-slug">/<%= p.slug %></span>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="category-badge">
+                      <%= p.category_name || '-' %>
+                    </span>
+                  </td>
+                  <td class="right">
+                    <% if (p.discount_percent && Number(p.discount_percent)> 0) { %>
+                      <% const orig=(p.price_cents/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}); const
+                        discountedCents=Math.round(p.price_cents * (100 - Number(p.discount_percent)) / 100); const
+                        discounted=(discountedCents/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}); %>
+                        <div class="price-with-discount">
+                          <span class="price-original" style="text-decoration:line-through;color:var(--muted)">
+                            <%= orig %>
+                          </span>
+                          <span class="price-discounted" style="color:var(--green);margin-left:8px;font-weight:700">
+                            <%= discounted %>
+                          </span>
+                          <span class="discount-pill small">-<%= p.discount_percent %>%</span>
+                        </div>
+                        <% } else { %>
+                          <span class="price">
+                            <%= (p.price_cents/100).toLocaleString('vi-VN',{style:'currency',currency:'VND'}) %>
+                          </span>
+                          <% } %>
+                  </td>
+                  <td class="center">
+                    <span class="stock-badge <%= p.stock > 0 ? 'in-stock' : 'out-of-stock' %>">
+                      <%= p.stock %>
+                    </span>
+                  </td>
+                  <td class="center">
+                    <button class="btn-featured <%= p.featured ? 'featured-active' : '' %>"
+                      onclick="toggleFeatured(<%= p.id %>, '<%= csrfToken %>')" type="button"
+                      title="<%= p.featured ? 'Bỏ đánh dấu nổi bật' : 'Đánh dấu nổi bật' %>"
+                      data-product-id="<%= p.id %>">
+                      <%= p.featured ? '🔥' : '⚪' %>
+                    </button>
+                  </td>
+                  <td class="center">
+                    <span class="status-badge <%= p.active ? 'active' : 'inactive' %> status-badge-<%= p.id %>">
+                      <%= p.active ? '✅ Hiển thị' : '❌ Ẩn' %>
+                    </span>
+                  </td>
+                  <td>
+                    <div class="action-buttons">
+                      <button class="btn small" onclick="toggleActive(<%= p.id %>, '<%= csrfToken %>')" type="button"
+                        title="<%= p.active ? 'Ẩn' : 'Hiện' %>" data-product-id="<%= p.id %>">
+                        <%= p.active ? '👁️' : '👁️‍🗨️' %>
+                      </button>
+                      <a class="btn small" href="/admin/products/<%= p.id %>/edit" title="Sửa">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20px" height="20px" viewBox="0 0 24 24"
+                          fill="none">
+                          <path fill-rule="evenodd" clip-rule="evenodd"
+                            d="M21.1213 2.70705C19.9497 1.53548 18.0503 1.53547 16.8787 2.70705L15.1989 4.38685L7.29289 12.2928C7.16473 12.421 7.07382 12.5816 7.02986 12.7574L6.02986 16.7574C5.94466 17.0982 6.04451 17.4587 6.29289 17.707C6.54127 17.9554 6.90176 18.0553 7.24254 17.9701L11.2425 16.9701C11.4184 16.9261 11.5789 16.8352 11.7071 16.707L19.5556 8.85857L21.2929 7.12126C22.4645 5.94969 22.4645 4.05019 21.2929 2.87862L21.1213 2.70705ZM18.2929 4.12126C18.6834 3.73074 19.3166 3.73074 19.7071 4.12126L19.8787 4.29283C20.2692 4.68336 20.2692 5.31653 19.8787 5.70705L18.8622 6.72357L17.3068 5.10738L18.2929 4.12126ZM15.8923 6.52185L17.4477 8.13804L10.4888 15.097L8.37437 15.6256L8.90296 13.5112L15.8923 6.52185ZM4 7.99994C4 7.44766 4.44772 6.99994 5 6.99994H10C10.5523 6.99994 11 6.55223 11 5.99994C11 5.44766 10.5523 4.99994 10 4.99994H5C3.34315 4.99994 2 6.34309 2 7.99994V18.9999C2 20.6568 3.34315 21.9999 5 21.9999H16C17.6569 21.9999 19 20.6568 19 18.9999V13.9999C19 13.4477 18.5523 12.9999 18 12.9999C17.4477 12.9999 17 13.4477 17 13.9999V18.9999C17 19.5522 16.5523 19.9999 16 19.9999H5C4.44772 19.9999 4 19.5522 4 18.9999V7.99994Z"
+                            fill="#000000" />
+                        </svg>
+                      </a>
+                      <button class="btn small danger"
+                        onclick="deleteProduct(<%= p.id %>, '<%= csrfToken %>', '<%= p.title %>')" type="button"
+                        title="Xóa" data-product-id="<%= p.id %>">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20px" height="20px" viewBox="0 0 24 24"
+                          fill="none">
+                          <path
+                            d="M12.0004 9.5L17.0004 14.5M17.0004 9.5L12.0004 14.5M4.50823 13.9546L7.43966 17.7546C7.79218 18.2115 7.96843 18.44 8.18975 18.6047C8.38579 18.7505 8.6069 18.8592 8.84212 18.9253C9.10766 19 9.39623 19 9.97336 19H17.8004C18.9205 19 19.4806 19 19.9084 18.782C20.2847 18.5903 20.5907 18.2843 20.7824 17.908C21.0004 17.4802 21.0004 16.9201 21.0004 15.8V8.2C21.0004 7.0799 21.0004 6.51984 20.7824 6.09202C20.5907 5.71569 20.2847 5.40973 19.9084 5.21799C19.4806 5 18.9205 5 17.8004 5H9.97336C9.39623 5 9.10766 5 8.84212 5.07467C8.6069 5.14081 8.38579 5.2495 8.18975 5.39534C7.96843 5.55998 7.79218 5.78846 7.43966 6.24543L4.50823 10.0454C3.96863 10.7449 3.69883 11.0947 3.59505 11.4804C3.50347 11.8207 3.50347 12.1793 3.59505 12.5196C3.69883 12.9053 3.96863 13.2551 4.50823 13.9546Z"
+                            stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <% } %>
   </div>
 </div>
 
 <style>
-.admin-products {
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.product-form-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 30px;
-  margin-bottom: 30px;
-}
-
-.product-form-card h2 {
-  margin: 0 0 24px 0;
-  font-size: 24px;
-  color: var(--fg);
-  border-bottom: 2px solid var(--green);
-  padding-bottom: 12px;
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 20px;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.form-group.full-width {
-  grid-column: 1 / -1;
-}
-
-.form-group label {
-  font-weight: 500;
-  color: var(--fg);
-  font-size: 14px;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.02);
-  color: var(--fg);
-  font-size: 14px;
-  font-family: inherit;
-  transition: all 0.2s;
-}
-
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-  outline: none;
-  border-color: var(--green);
-  background: rgba(22, 163, 74, 0.05);
-}
-
-.form-hint {
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.form-actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 24px;
-  padding-top: 24px;
-  border-top: 1px solid var(--border);
-}
-
-.form-actions .btn.large {
-  padding: 14px 28px;
-  font-size: 16px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.products-list-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 30px;
-}
-
-.products-list-card h2 {
-  margin: 0 0 24px 0;
-  font-size: 24px;
-  color: var(--fg);
-  border-bottom: 2px solid var(--green);
-  padding-bottom: 12px;
-}
-
-.products-table-wrapper {
-  overflow-x: auto;
-}
-
-.products-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.products-table th {
-  padding: 12px;
-  text-align: left;
-  font-weight: 600;
-  color: var(--fg);
-  border-bottom: 2px solid var(--border);
-  font-size: 14px;
-}
-
-.products-table td {
-  padding: 16px 12px;
-  border-bottom: 1px solid var(--border);
-}
-
-.products-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.product-cell {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.product-thumb {
-  width: 50px;
-  height: 50px;
-  object-fit: cover;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-}
-
-.product-info-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.product-title-link {
-  color: var(--fg);
-  text-decoration: none;
-  font-weight: 500;
-  font-size: 14px;
-}
-
-.product-title-link:hover {
-  color: var(--green);
-}
-
-.product-slug {
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.category-badge {
-  display: inline-block;
-  padding: 4px 12px;
-  background: rgba(139, 92, 246, 0.1);
-  color: #8b5cf6;
-  border-radius: 12px;
-  font-size: 12px;
-}
-
-.stock-badge {
-  display: inline-block;
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.stock-badge.in-stock {
-  background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
-}
-
-.stock-badge.out-of-stock {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-}
-
-.status-badge {
-  display: inline-block;
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.status-badge.active {
-  background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
-}
-
-.status-badge.inactive {
-  background: rgba(107, 114, 128, 0.1);
-  color: #6b7280;
-}
-
-.action-buttons {
-  display: flex;
-  gap: 6px;
-  justify-content: center;
-}
-
-.action-buttons .btn.small {
-  padding: 6px 10px;
-  font-size: 14px;
-  min-width: 36px;
-}
-
-.btn-featured {
-  background: transparent;
-  border: 2px solid var(--border);
-  border-radius: 50%;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 18px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  padding: 0;
-}
-
-.btn-featured:hover {
-  background: rgba(22, 163, 74, 0.1);
-  border-color: var(--green);
-  transform: scale(1.1);
-}
-
-.btn-featured.featured-active {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.2) 100%);
-  border-color: #ef4444;
-  animation: pulse-featured 2s ease-in-out infinite;
-}
-
-.btn-featured.featured-active:hover {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.3) 0%, rgba(220, 38, 38, 0.3) 100%);
-  transform: scale(1.15);
-}
-
-@keyframes pulse-featured {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  .admin-products {
+    max-width: 1400px;
+    margin: 0 auto;
   }
-  50% {
-    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
-  }
-}
 
-@media (max-width: 968px) {
+  .product-form-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 30px;
+    margin-bottom: 30px;
+  }
+
+  .product-form-card h2 {
+    margin: 0 0 24px 0;
+    font-size: 24px;
+    color: var(--fg);
+    border-bottom: 2px solid var(--green);
+    padding-bottom: 12px;
+  }
+
   .form-grid {
-    grid-template-columns: 1fr;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
   }
-  
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .form-group.full-width {
+    grid-column: 1 / -1;
+  }
+
+  .form-group label {
+    font-weight: 500;
+    color: var(--fg);
+    font-size: 14px;
+  }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--fg);
+    font-size: 14px;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+
+  .form-group input:focus,
+  .form-group select:focus,
+  .form-group textarea:focus {
+    outline: none;
+    border-color: var(--green);
+    background: rgba(22, 163, 74, 0.05);
+  }
+
+  .form-hint {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+  }
+
+  .form-actions .btn.large {
+    padding: 14px 28px;
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .products-list-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 30px;
+  }
+
+  .products-list-card h2 {
+    margin: 0 0 24px 0;
+    font-size: 24px;
+    color: var(--fg);
+    border-bottom: 2px solid var(--green);
+    padding-bottom: 12px;
+  }
+
   .products-table-wrapper {
-    overflow-x: scroll;
+    overflow-x: auto;
   }
-}
+
+  .products-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .products-table th {
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--fg);
+    border-bottom: 2px solid var(--border);
+    font-size: 14px;
+  }
+
+  .products-table td {
+    padding: 16px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .products-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .product-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .product-thumb {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+
+  .product-info-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .product-title-link {
+    color: var(--fg);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 14px;
+  }
+
+  .product-title-link:hover {
+    color: var(--green);
+  }
+
+  .product-slug {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .category-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    background: rgba(139, 92, 246, 0.1);
+    color: #8b5cf6;
+    border-radius: 12px;
+    font-size: 12px;
+  }
+
+  .stock-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .stock-badge.in-stock {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+  }
+
+  .stock-badge.out-of-stock {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+  }
+
+  .status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .status-badge.active {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+  }
+
+  .status-badge.inactive {
+    background: rgba(107, 114, 128, 0.1);
+    color: #6b7280;
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+  }
+
+  .action-buttons .btn.small {
+    padding: 6px 10px;
+    font-size: 14px;
+    min-width: 36px;
+  }
+
+  .btn-featured {
+    background: transparent;
+    border: 2px solid var(--border);
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 18px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    padding: 0;
+  }
+
+  .btn-featured:hover {
+    background: rgba(22, 163, 74, 0.1);
+    border-color: var(--green);
+    transform: scale(1.1);
+  }
+
+  .btn-featured.featured-active {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.2) 100%);
+    border-color: #ef4444;
+    animation: pulse-featured 2s ease-in-out infinite;
+  }
+
+  .btn-featured.featured-active:hover {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.3) 0%, rgba(220, 38, 38, 0.3) 100%);
+    transform: scale(1.15);
+  }
+
+  @keyframes pulse-featured {
+
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+    }
+
+    50% {
+      box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+    }
+  }
+
+  @media (max-width: 968px) {
+    .form-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .products-table-wrapper {
+      overflow-x: scroll;
+    }
+  }
 </style>
 
 <script>
-// Auto-generate slug from title
-document.getElementById('title').addEventListener('input', function() {
-  const title = this.value;
-  const slugInput = document.getElementById('slug');
-  
-  if (slugInput.value === '' || slugInput.dataset.autoGenerated === 'true') {
-    const slug = title
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .trim();
-    slugInput.value = slug;
-    slugInput.dataset.autoGenerated = 'true';
-  }
-});
+  // Auto-generate slug from title
+  document.getElementById('title').addEventListener('input', function () {
+    const title = this.value;
+    const slugInput = document.getElementById('slug');
 
-document.getElementById('slug').addEventListener('input', function() {
-  this.dataset.autoGenerated = 'false';
-});
-
-// AJAX functions for product management
-async function toggleFeatured(productId, csrfToken) {
-  const button = document.querySelector(`[data-product-id="${productId}"].btn-featured`);
-  if (!button) return;
-  
-  button.disabled = true;
-  button.style.opacity = '0.6';
-  
-  try {
-    const formData = new FormData();
-    formData.append('_csrf', csrfToken);
-    
-    const response = await fetch(`/api/admin/products/${productId}/toggle-featured`, {
-      method: 'POST',
-      body: formData,
-      credentials: 'same-origin'
-    });
-    
-    const data = await response.json();
-    
-    if (data.success) {
-      // Update button appearance
-      if (data.featured) {
-        button.classList.add('featured-active');
-        button.innerHTML = '🔥';
-        button.title = 'Bỏ đánh dấu nổi bật';
-      } else {
-        button.classList.remove('featured-active');
-        button.innerHTML = '⚪';
-        button.title = 'Đánh dấu nổi bật';
-      }
-      
-      showAdminToast(data.message, 'success');
-    } else {
-      showAdminToast(data.message || 'Có lỗi xảy ra', 'error');
+    if (slugInput.value === '' || slugInput.dataset.autoGenerated === 'true') {
+      const slug = title
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .trim();
+      slugInput.value = slug;
+      slugInput.dataset.autoGenerated = 'true';
     }
-  } catch (error) {
-    console.error('Error toggling featured:', error);
-    showAdminToast('Có lỗi xảy ra. Vui lòng thử lại.', 'error');
-  } finally {
-    button.disabled = false;
-    button.style.opacity = '1';
-  }
-}
+  });
 
-async function toggleActive(productId, csrfToken) {
-  const button = document.querySelector(`[data-product-id="${productId}"].btn.small`);
-  const statusBadge = document.querySelector(`.status-badge-${productId}`);
-  if (!button || !statusBadge) return;
-  
-  button.disabled = true;
-  button.style.opacity = '0.6';
-  
-  try {
-    const formData = new FormData();
-    formData.append('_csrf', csrfToken);
-    
-    const response = await fetch(`/api/admin/products/${productId}/toggle`, {
-      method: 'POST',
-      body: formData,
-      credentials: 'same-origin'
-    });
-    
-    const data = await response.json();
-    
-    if (data.success) {
-      // Update status badge
-      if (data.active) {
-        statusBadge.classList.remove('inactive');
-        statusBadge.classList.add('active');
-        statusBadge.textContent = '✅ Hiển thị';
-        button.innerHTML = '👁️';
-        button.title = 'Ẩn';
-      } else {
-        statusBadge.classList.remove('active');
-        statusBadge.classList.add('inactive');
-        statusBadge.textContent = '❌ Ẩn';
-        button.innerHTML = '👁️‍🗨️';
-        button.title = 'Hiện';
-      }
-      
-      showAdminToast(data.message, 'success');
-    } else {
-      showAdminToast(data.message || 'Có lỗi xảy ra', 'error');
-    }
-  } catch (error) {
-    console.error('Error toggling active:', error);
-    showAdminToast('Có lỗi xảy ra. Vui lòng thử lại.', 'error');
-  } finally {
-    button.disabled = false;
-    button.style.opacity = '1';
-  }
-}
+  document.getElementById('slug').addEventListener('input', function () {
+    this.dataset.autoGenerated = 'false';
+  });
 
-async function deleteProduct(productId, csrfToken, productTitle) {
-  if (!confirm(`Bạn có chắc chắn muốn xóa sản phẩm "${productTitle}"?`)) {
-    return;
-  }
-  
-  const button = document.querySelector(`[data-product-id="${productId}"].btn.danger`);
-  const row = button?.closest('tr');
-  
-  if (!button || !row) return;
-  
-  button.disabled = true;
-  button.style.opacity = '0.6';
-  
-  try {
-    const formData = new FormData();
-    formData.append('_csrf', csrfToken);
-    
-    const response = await fetch(`/api/admin/products/${productId}/delete`, {
-      method: 'POST',
-      body: formData,
-      credentials: 'same-origin'
-    });
-    
-    const data = await response.json();
-    
-    if (data.success) {
-      // Fade out and remove row
-      row.style.transition = 'opacity 0.3s';
-      row.style.opacity = '0';
-      setTimeout(() => {
-        row.remove();
-        // Check if table is empty
-        const tbody = document.querySelector('.products-table tbody');
-        if (tbody && tbody.children.length === 0) {
-          location.reload(); // Reload to show empty message
+  // AJAX functions for product management
+  async function toggleFeatured(productId, csrfToken) {
+    const button = document.querySelector(`[data-product-id="${productId}"].btn-featured`);
+    if (!button) return;
+
+    button.disabled = true;
+    button.style.opacity = '0.6';
+
+    try {
+      const formData = new FormData();
+      formData.append('_csrf', csrfToken);
+
+      const response = await fetch(`/api/admin/products/${productId}/toggle-featured`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'same-origin'
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Update button appearance
+        if (data.featured) {
+          button.classList.add('featured-active');
+          button.innerHTML = '🔥';
+          button.title = 'Bỏ đánh dấu nổi bật';
+        } else {
+          button.classList.remove('featured-active');
+          button.innerHTML = '⚪';
+          button.title = 'Đánh dấu nổi bật';
         }
-      }, 300);
-      
-      showAdminToast(data.message, 'success');
-    } else {
-      showAdminToast(data.message || 'Có lỗi xảy ra', 'error');
+
+        showAdminToast(data.message, 'success');
+      } else {
+        showAdminToast(data.message || 'Có lỗi xảy ra', 'error');
+      }
+    } catch (error) {
+      console.error('Error toggling featured:', error);
+      showAdminToast('Có lỗi xảy ra. Vui lòng thử lại.', 'error');
+    } finally {
       button.disabled = false;
       button.style.opacity = '1';
     }
-  } catch (error) {
-    console.error('Error deleting product:', error);
-    showAdminToast('Có lỗi xảy ra. Vui lòng thử lại.', 'error');
-    button.disabled = false;
-    button.style.opacity = '1';
   }
-}
 
-// Toast notification for admin
-function showAdminToast(message, type = 'success') {
-  // Use existing toast function if available
-  if (typeof showToast === 'function') {
-    showToast(message, type);
-    return;
+  async function toggleActive(productId, csrfToken) {
+    const button = document.querySelector(`[data-product-id="${productId}"].btn.small`);
+    const statusBadge = document.querySelector(`.status-badge-${productId}`);
+    if (!button || !statusBadge) return;
+
+    button.disabled = true;
+    button.style.opacity = '0.6';
+
+    try {
+      const formData = new FormData();
+      formData.append('_csrf', csrfToken);
+
+      const response = await fetch(`/api/admin/products/${productId}/toggle`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'same-origin'
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Update status badge
+        if (data.active) {
+          statusBadge.classList.remove('inactive');
+          statusBadge.classList.add('active');
+          statusBadge.textContent = '✅ Hiển thị';
+          button.innerHTML = '👁️';
+          button.title = 'Ẩn';
+        } else {
+          statusBadge.classList.remove('active');
+          statusBadge.classList.add('inactive');
+          statusBadge.textContent = '❌ Ẩn';
+          button.innerHTML = '👁️‍🗨️';
+          button.title = 'Hiện';
+        }
+
+        showAdminToast(data.message, 'success');
+      } else {
+        showAdminToast(data.message || 'Có lỗi xảy ra', 'error');
+      }
+    } catch (error) {
+      console.error('Error toggling active:', error);
+      showAdminToast('Có lỗi xảy ra. Vui lòng thử lại.', 'error');
+    } finally {
+      button.disabled = false;
+      button.style.opacity = '1';
+    }
   }
-  
-  // Fallback toast implementation
-  const toast = document.createElement('div');
-  toast.className = `admin-toast admin-toast-${type}`;
-  toast.textContent = message;
-  
-  toast.style.cssText = `
+
+  async function deleteProduct(productId, csrfToken, productTitle) {
+    if (!confirm(`Bạn có chắc chắn muốn xóa sản phẩm "${productTitle}"?`)) {
+      return;
+    }
+
+    const button = document.querySelector(`[data-product-id="${productId}"].btn.danger`);
+    const row = button?.closest('tr');
+
+    if (!button || !row) return;
+
+    button.disabled = true;
+    button.style.opacity = '0.6';
+
+    try {
+      const formData = new FormData();
+      formData.append('_csrf', csrfToken);
+
+      const response = await fetch(`/api/admin/products/${productId}/delete`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'same-origin'
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Fade out and remove row
+        row.style.transition = 'opacity 0.3s';
+        row.style.opacity = '0';
+        setTimeout(() => {
+          row.remove();
+          // Check if table is empty
+          const tbody = document.querySelector('.products-table tbody');
+          if (tbody && tbody.children.length === 0) {
+            location.reload(); // Reload to show empty message
+          }
+        }, 300);
+
+        showAdminToast(data.message, 'success');
+      } else {
+        showAdminToast(data.message || 'Có lỗi xảy ra', 'error');
+        button.disabled = false;
+        button.style.opacity = '1';
+      }
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      showAdminToast('Có lỗi xảy ra. Vui lòng thử lại.', 'error');
+      button.disabled = false;
+      button.style.opacity = '1';
+    }
+  }
+
+  // Toast notification for admin
+  function showAdminToast(message, type = 'success') {
+    // Use existing toast function if available
+    if (typeof showToast === 'function') {
+      showToast(message, type);
+      return;
+    }
+
+    // Fallback toast implementation
+    const toast = document.createElement('div');
+    toast.className = `admin-toast admin-toast-${type}`;
+    toast.textContent = message;
+
+    toast.style.cssText = `
     position: fixed;
     top: 20px;
     right: 20px;
@@ -641,19 +670,19 @@ function showAdminToast(message, type = 'success') {
     z-index: 10000;
     animation: slideInRight 0.3s ease-out;
   `;
-  
-  document.body.appendChild(toast);
-  
-  setTimeout(() => {
-    toast.style.animation = 'slideOutRight 0.3s ease-out';
-    setTimeout(() => toast.remove(), 300);
-  }, 3000);
-  
-  // Add animations if not exist
-  if (!document.getElementById('admin-toast-styles')) {
-    const style = document.createElement('style');
-    style.id = 'admin-toast-styles';
-    style.textContent = `
+
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+      toast.style.animation = 'slideOutRight 0.3s ease-out';
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+
+    // Add animations if not exist
+    if (!document.getElementById('admin-toast-styles')) {
+      const style = document.createElement('style');
+      style.id = 'admin-toast-styles';
+      style.textContent = `
       @keyframes slideInRight {
         from {
           transform: translateX(100%);
@@ -675,9 +704,7 @@ function showAdminToast(message, type = 'success') {
         }
       }
     `;
-    document.head.appendChild(style);
+      document.head.appendChild(style);
+    }
   }
-}
 </script>
-
-

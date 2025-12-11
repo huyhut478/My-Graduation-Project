@@ -24,6 +24,7 @@ import https from 'https';
 import * as dataManager from './data/data-manager.js';
 import { uploadReview } from './src/config/uploads.js';
 import * as reviewService from './src/services/reviewService.js';
+import { sendOtp, verifyOtp } from './src/services/otpService.js';
 import authRouter from './src/routes/auth.js';
 import cartRouter from './src/routes/cart.js';
 import checkoutRouter from './src/routes/checkout.js';
@@ -2508,6 +2509,106 @@ app.post('/profile', requireAuth,
   }
 );
 
+// Send OTP for password change
+app.post('/profile/request-password-otp', requireAuth,
+  body('current_password').notEmpty().withMessage('Vui lòng nhập mật khẩu hiện tại'),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.json({ success: false, message: errors.array().map(e => e.msg).join(', ') });
+    }
+
+    const { current_password } = req.body;
+    const userId = getUserId(req);
+
+    try {
+      const stmt1 = db.prepare('SELECT * FROM users WHERE id = ?');
+      const user = await stmt1.get(userId);
+      if (!user) {
+        return res.json({ success: false, message: 'Không tìm thấy người dùng' });
+      }
+
+      if (user.google_id) {
+        return res.json({ success: false, message: 'Tài khoản đăng nhập bằng Google không thể đổi mật khẩu' });
+      }
+
+      if (!bcrypt.compareSync(current_password, user.password_hash)) {
+        return res.json({ success: false, message: 'Mật khẩu hiện tại không đúng' });
+      }
+
+      // Send OTP
+      await sendOtp(user.email, 'Mã xác thực đổi mật khẩu SafeKeyS',
+        `<h2>Xác thực đổi mật khẩu</h2><p>Mã xác thực của bạn: <b style="font-size: 24px; letter-spacing: 4px;">OTP_PLACEHOLDER</b></p><p>Mã có hiệu lực trong 2 phút.</p><p>Nếu bạn không yêu cầu đổi mật khẩu, vui lòng bỏ qua email này.</p>`);
+
+      return res.json({ success: true, message: 'Đã gửi mã xác thực đến email của bạn' });
+    } catch (err) {
+      console.error('Request OTP error:', err);
+      return res.json({ success: false, message: 'Có lỗi xảy ra khi gửi mã xác thực' });
+    }
+  }
+);
+
+// Verify OTP and change password
+app.post('/profile/verify-password-otp', requireAuth,
+  body('current_password').notEmpty().withMessage('Vui lòng nhập mật khẩu hiện tại'),
+  body('otp').notEmpty().isLength({ min: 6, max: 6 }).withMessage('Mã xác thực phải có 6 chữ số'),
+  body('new_password').isLength({ min: 6 }).withMessage('Mật khẩu mới tối thiểu 6 ký tự'),
+  body('confirm_password').custom((value, { req }) => {
+    if (value !== req.body.new_password) {
+      throw new Error('Mật khẩu xác nhận không khớp');
+    }
+    return true;
+  }),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.json({ success: false, message: errors.array().map(e => e.msg).join(', ') });
+    }
+
+    const { current_password, otp, new_password } = req.body;
+    const userId = getUserId(req);
+
+    try {
+      const stmt1 = db.prepare('SELECT * FROM users WHERE id = ?');
+      const user = await stmt1.get(userId);
+      if (!user) {
+        return res.json({ success: false, message: 'Không tìm thấy người dùng' });
+      }
+
+      if (user.google_id) {
+        return res.json({ success: false, message: 'Tài khoản đăng nhập bằng Google không thể đổi mật khẩu' });
+      }
+
+      if (!bcrypt.compareSync(current_password, user.password_hash)) {
+        return res.json({ success: false, message: 'Mật khẩu hiện tại không đúng' });
+      }
+
+      // Verify OTP
+      const otpVerification = verifyOtp(user.email, otp);
+      if (!otpVerification.success) {
+        return res.json({ success: false, message: otpVerification.message });
+      }
+
+      // Update password
+      const newPasswordHash = bcrypt.hashSync(new_password, 10);
+      await pool.query(
+        'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+        [newPasswordHash, userId]
+      );
+
+      dataManager.updateItem('users', userId, {
+        password_hash: newPasswordHash,
+        updated_at: new Date().toISOString()
+      });
+
+      return res.json({ success: true, message: 'Đã đổi mật khẩu thành công' });
+    } catch (err) {
+      console.error('Verify OTP error:', err);
+      return res.json({ success: false, message: 'Có lỗi xảy ra khi đổi mật khẩu' });
+    }
+  }
+);
+
 // Change password (separate route)
 app.post('/profile/change-password', requireAuth,
   body('current_password').notEmpty().withMessage('Vui lòng nhập mật khẩu hiện tại'),
@@ -2715,19 +2816,19 @@ const KEYS_MANAGEMENT_PASSWORD = '141514';
 
 // Middleware to check keys management password
 function requireKeysPassword(req, res, next) {
-  console.log('🔒 requireKeysPassword middleware called');
-  console.log('🔒 Session keysPasswordVerified:', req.session.keysPasswordVerified);
-  console.log('🔒 Request path:', req.path);
-  console.log('🔒 Request method:', req.method);
-  console.log('🔒 Request originalUrl:', req.originalUrl);
+  console.log('requireKeysPassword middleware called');
+  console.log('Session keysPasswordVerified:', req.session.keysPasswordVerified);
+  console.log('Request path:', req.path);
+  console.log('Request method:', req.method);
+  console.log('Request originalUrl:', req.originalUrl);
 
   if (req.session.keysPasswordVerified) {
-    console.log('🔒 Password verified, proceeding...');
+    console.log('Password verified, proceeding...');
     return next();
   }
 
   // Show password form - render directly without layout to avoid conflicts
-  console.log('🔒 Password not verified, showing password form');
+  console.log('Password not verified, showing password form');
   // Get CSRF token safely
   let csrfToken = '';
   try {
@@ -2779,14 +2880,95 @@ app.post('/admin/keys/verify', requireAdmin, async (req, res) => {
   }
 });
 
+// Request OTP to access admin keys
+app.post('/admin/keys/request-otp', requireAdmin, async (req, res) => {
+  try {
+    const user = req.session?.user || req.user || null;
+    if (!user || !user.email) {
+      req.flash('error', 'Không tìm thấy email quản trị để gửi OTP');
+      return res.redirect('/admin/keys');
+    }
+
+    // Send OTP using otpService; template uses OTP_PLACEHOLDER
+    await sendOtp(user.email, 'Mã OTP truy cập Quản lý Key SafeKeyS',
+      `<h2>Xác thực truy cập Quản lý Key</h2><p>Mã OTP của bạn: <b style="font-size:24px; letter-spacing:4px;">OTP_PLACEHOLDER</b></p><p>Mã có hiệu lực trong ${Math.round((Number(process.env.OTP_EXPIRE_SECONDS) || 120))} giây.</p>`
+    );
+
+    // Mark that OTP was requested so UI shows verify input
+    req.session.keysOtpRequested = true;
+    await new Promise((resolve, reject) => req.session.save(err => err ? reject(err) : resolve()));
+    req.flash('success', 'Đã gửi mã OTP tới email quản trị');
+    res.redirect('/admin/keys');
+  } catch (err) {
+    console.error('Error sending OTP for admin keys:', err);
+    req.flash('error', 'Có lỗi xảy ra khi gửi mã OTP');
+    res.redirect('/admin/keys');
+  }
+});
+
+// Verify OTP for admin keys
+app.post('/admin/keys/verify-otp', requireAdmin, async (req, res) => {
+  try {
+    const { otp } = req.body || {};
+    const user = req.session?.user || req.user || null;
+    if (!user || !user.email) {
+      req.flash('error', 'Không tìm thấy email quản trị');
+      return res.redirect('/admin/keys');
+    }
+
+    const result = verifyOtp(user.email, otp);
+    if (!result.success) {
+      req.flash('error', result.message || 'OTP không hợp lệ');
+      req.session.keysOtpRequested = true;
+      await new Promise((resolve, reject) => req.session.save(err => err ? reject(err) : resolve()));
+      return res.redirect('/admin/keys');
+    }
+
+    // Verified
+    req.session.keysOtpVerified = true;
+    delete req.session.keysOtpRequested;
+    await new Promise((resolve, reject) => req.session.save(err => err ? reject(err) : resolve()));
+    res.redirect('/admin/keys');
+  } catch (err) {
+    console.error('Error verifying OTP for admin keys:', err);
+    req.flash('error', 'Có lỗi xảy ra khi xác thực OTP');
+    res.redirect('/admin/keys');
+  }
+});
+
 // Logout from keys management
 app.post('/admin/keys/logout', requireAdmin, (req, res) => {
   delete req.session.keysPasswordVerified;
+  delete req.session.keysOtpVerified;
+  delete req.session.keysOtpRequested;
   res.redirect('/admin');
 });
 
 // Keys management page - MUST be registered before /admin route
-app.get('/admin/keys', requireAdmin, requireKeysPassword, async (req, res) => {
+app.get('/admin/keys', requireAdmin, async (req, res) => {
+  // Require OTP verification for admin keys access
+  if (!req.session?.keysOtpVerified) {
+    // Prepare CSRF token safely
+    let csrfToken = '';
+    try {
+      if (req.csrfToken && typeof req.csrfToken === 'function') {
+        csrfToken = req.csrfToken();
+      } else if (res.locals.csrfToken) {
+        csrfToken = res.locals.csrfToken;
+      }
+    } catch (e) {
+      csrfToken = '';
+    }
+
+    const showOtpInput = !!req.session.keysOtpRequested || req.query.showOtp === '1';
+    return res.render('admin/keys-otp', {
+      title: 'Xác thực OTP - Quản lý Key',
+      csrfToken,
+      showOtpInput,
+      user: req.session?.user || req.user || null
+    });
+  }
+
   console.log('🔑 Accessing /admin/keys route - SUCCESS!');
   try {
     // Get all products with their keys from product_keys table
@@ -2826,13 +3008,26 @@ app.get('/admin/keys', requireAdmin, requireKeysPassword, async (req, res) => {
     const keyDisplayTitle = await getSetting('key_display_title') || '🔑 Key của bạn';
     const keyDisplayMessage = await getSetting('key_display_message') || 'Key đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư spam nếu không thấy.';
 
+    // Prepare CSRF token to pass into view
+    let csrfToken = '';
+    try {
+      if (req.csrfToken && typeof req.csrfToken === 'function') {
+        csrfToken = req.csrfToken();
+      } else if (res.locals.csrfToken) {
+        csrfToken = res.locals.csrfToken;
+      }
+    } catch {
+      csrfToken = '';
+    }
+
     res.render('admin/keys', {
       title: 'Quản lý Key - SafeKeyS',
       products,
       productKeys,
       orderCounts,
       keyDisplayTitle,
-      keyDisplayMessage
+      keyDisplayMessage,
+      csrfToken
     });
   } catch (error) {
     console.error('Error loading keys management:', error);
@@ -2842,7 +3037,7 @@ app.get('/admin/keys', requireAdmin, requireKeysPassword, async (req, res) => {
 });
 
 // Save key display settings
-app.post('/admin/keys/settings', requireAdmin, requireKeysPassword, async (req, res) => {
+app.post('/admin/keys/settings', requireAdmin, async (req, res) => {
   try {
     const { key_display_title, key_display_message } = req.body;
 

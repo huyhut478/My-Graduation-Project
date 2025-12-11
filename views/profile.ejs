@@ -52,7 +52,7 @@
       <!-- Profile Info Card -->
       <div class="profile-card">
         <div class="card-header">
-          <h3>📝 Thông tin cá nhân</h3>
+          <h3>Thông tin cá nhân</h3>
         </div>
         <form action="/profile" method="post" class="profile-form" id="profileForm" enctype="multipart/form-data">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
@@ -125,13 +125,13 @@
           
           <div class="form-actions">
             <button type="submit" class="btn primary large">
-              <span>💾</span>
+             
               Lưu thay đổi
             </button>
             <a href="/" class="btn secondary">Hủy</a>
           </div>
           <div class="form-note">
-            <small>💡 Bạn có thể lưu từng phần, không cần nhập hết thông tin. Chỉ cần nhập tên là đủ.</small>
+            <small>Bạn có thể lưu từng phần, không cần nhập hết thông tin. Chỉ cần nhập tên là đủ.</small>
           </div>
         </form>
       </div>
@@ -140,7 +140,7 @@
       <% if (!user.google_id) { %>
         <div class="profile-card password-card">
           <div class="card-header">
-            <h3>🔐 Bảo mật tài khoản</h3>
+            <h3>Đổi mật khẩu</h3>
             <button type="button" class="btn-toggle-password" onclick="togglePasswordSection()">
               <span class="toggle-icon" id="toggleIcon">▼</span>
               <span class="toggle-text">Đổi mật khẩu</span>
@@ -149,56 +149,98 @@
           
           <% const showPasswordError = (typeof flash !== 'undefined' && flash.error && flash.error.some(e => e.includes('mật khẩu'))); %>
           <div class="password-section" id="passwordSection"<% if (!showPasswordError) { %> style="display: none;"<% } %>>
-            <form action="/profile/change-password?_csrf=<%= csrfToken %>" method="post" class="password-form" id="passwordForm">
-              <div class="form-group">
-                <label for="current_password">Mật khẩu hiện tại *</label>
-                <input 
-                  type="password" 
-                  id="current_password" 
-                  name="current_password" 
-                  placeholder="Nhập mật khẩu hiện tại"
-                  autocomplete="current-password"
-                  required
-                />
-              </div>
-              
-              <div class="form-row">
+            <!-- Step 1: Verify Current Password and Request OTP -->
+            <div id="passwordStep1" style="display: block;">
+              <form id="passwordStep1Form" class="password-form" onsubmit="return requestPasswordOTP(event)">
                 <div class="form-group">
-                  <label for="new_password">Mật khẩu mới *</label>
+                  <label for="current_password">Mật khẩu hiện tại *</label>
                   <input 
                     type="password" 
-                    id="new_password" 
-                    name="new_password" 
-                    placeholder="Nhập mật khẩu mới (tối thiểu 6 ký tự)"
-                    autocomplete="new-password"
-                    minlength="6"
+                    id="current_password" 
+                    name="current_password" 
+                    placeholder="Nhập mật khẩu hiện tại"
+                    autocomplete="current-password"
                     required
                   />
-                  <small class="form-hint">Tối thiểu 6 ký tự</small>
                 </div>
                 
+                <div class="form-actions">
+                  <button type="submit" class="btn primary">
+                    Tiếp tục
+                  </button>
+                  <button type="button" class="btn secondary" onclick="togglePasswordSection()">Hủy</button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Step 2: Verify OTP and Set New Password -->
+            <div id="passwordStep2" style="display: none;">
+              <form id="passwordStep2Form" class="password-form" onsubmit="return verifyPasswordOTP(event)">
+                <input type="hidden" id="step2CurrentPassword" name="current_password" />
+                
                 <div class="form-group">
-                  <label for="confirm_password">Xác nhận mật khẩu *</label>
+                  <label for="otp">Mã xác thực *</label>
+                  <p style="margin: 5px 0 10px 0; color: #666; font-size: 0.9em;">Mã xác thực đã được gửi đến email <strong><%= user.email %></strong></p>
                   <input 
-                    type="password" 
-                    id="confirm_password" 
-                    name="confirm_password" 
-                    placeholder="Nhập lại mật khẩu mới"
-                    autocomplete="new-password"
-                    minlength="6"
+                    type="text" 
+                    id="otp" 
+                    name="otp" 
+                    placeholder="Nhập 6 chữ số"
+                    maxlength="6"
+                    pattern="[0-9]{6}"
+                    autocomplete="off"
                     required
                   />
+                  <small class="form-hint">Mã có hiệu lực trong 2 phút</small>
                 </div>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="new_password_otp">Mật khẩu mới *</label>
+                    <input 
+                      type="password" 
+                      id="new_password_otp" 
+                      name="new_password" 
+                      placeholder="Nhập mật khẩu mới (tối thiểu 6 ký tự)"
+                      autocomplete="new-password"
+                      minlength="6"
+                      required
+                    />
+                    <small class="form-hint">Tối thiểu 6 ký tự</small>
+                  </div>
+                  
+                  <div class="form-group">
+                    <label for="confirm_password_otp">Xác nhận mật khẩu *</label>
+                    <input 
+                      type="password" 
+                      id="confirm_password_otp" 
+                      name="confirm_password" 
+                      placeholder="Nhập lại mật khẩu mới"
+                      autocomplete="new-password"
+                      minlength="6"
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div class="form-actions">
+                  <button type="submit" class="btn primary">
+                    Xác nhận và đổi mật khẩu
+                  </button>
+                  <button type="button" class="btn secondary" onclick="goBackPasswordStep1()">Quay lại</button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Success Message -->
+            <div id="passwordSuccess" style="display: none;">
+              <div style="text-align: center; padding: 20px;">
+                <div style="font-size: 48px; color: #4CAF50; margin-bottom: 10px;">✓</div>
+                <h3 style="color: #333; margin: 10px 0;">Đổi mật khẩu thành công!</h3>
+                <p style="color: #666; margin-bottom: 20px;">Mật khẩu của bạn đã được cập nhật.</p>
+                <button type="button" class="btn primary" onclick="closePasswordSuccess()">Xong</button>
               </div>
-              
-              <div class="form-actions">
-                <button type="submit" class="btn primary">
-                  <span>🔐</span>
-                  Đổi mật khẩu
-                </button>
-                <button type="button" class="btn secondary" onclick="togglePasswordSection()">Hủy</button>
-              </div>
-            </form>
+            </div>
           </div>
         </div>
       <% } %>
@@ -233,23 +275,23 @@
 </div>
 
 <script>
-function togglePasswordSection() {
-  const section = document.getElementById('passwordSection');
-  const toggleIcon = document.getElementById('toggleIcon');
-  const isHidden = section.style.display === 'none';
-  
-  section.style.display = isHidden ? 'block' : 'none';
-  toggleIcon.textContent = isHidden ? '▲' : '▼';
-  
-  if (isHidden) {
-    // Focus on first input when showing
-    setTimeout(() => {
-      document.getElementById('current_password')?.focus();
-    }, 100);
-  } else {
-    // Reset form when hiding
-    document.getElementById('passwordForm')?.reset();
-  }
+  function togglePasswordSection() {
+    const section = document.getElementById('passwordSection');
+    const toggleIcon = document.getElementById('toggleIcon');
+    const isHidden = section.style.display === 'none';
+    
+    section.style.display = isHidden ? 'block' : 'none';
+    toggleIcon.textContent = isHidden ? '▲' : '▼';
+    
+    if (isHidden) {
+      // Focus on first input when showing
+      setTimeout(() => {
+        document.getElementById('current_password')?.focus();
+      }, 100);
+    } else {
+      // Reset form when hiding
+      document.getElementById('passwordForm')?.reset();
+    }
 }
 
 // Preview avatar before upload and sync with form input
@@ -318,25 +360,154 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
-// Validate password confirmation
+// OTP Password Change Flow
+async function requestPasswordOTP(event) {
+  event.preventDefault();
+  const currentPassword = document.getElementById('current_password').value;
+  
+  if (!currentPassword.trim()) {
+    alert('Vui lòng nhập mật khẩu hiện tại');
+    return false;
+  }
+
+  const button = event.target.querySelector('button[type="submit"]');
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Đang gửi...';
+
+  try {
+    const response = await fetch('/profile/request-password-otp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: JSON.stringify({ current_password: currentPassword })
+    });
+
+    const data = await response.json();
+    
+    if (data.success) {
+      // Store current password for step 2
+      document.getElementById('step2CurrentPassword').value = currentPassword;
+      
+      // Move to step 2
+      document.getElementById('passwordStep1').style.display = 'none';
+      document.getElementById('passwordStep2').style.display = 'block';
+      document.getElementById('otp').focus();
+      
+      alert('Mã xác thực đã được gửi đến email của bạn');
+    } else {
+      alert('Lỗi: ' + data.message);
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    alert('Có lỗi xảy ra khi gửi mã xác thực. Vui lòng thử lại.');
+  } finally {
+    button.disabled = false;
+    button.textContent = originalText;
+  }
+
+  return false;
+}
+
+async function verifyPasswordOTP(event) {
+  event.preventDefault();
+  
+  const otp = document.getElementById('otp').value;
+  const newPassword = document.getElementById('new_password_otp').value;
+  const confirmPassword = document.getElementById('confirm_password_otp').value;
+  const currentPassword = document.getElementById('step2CurrentPassword').value;
+
+  // Validate
+  if (!otp || otp.length !== 6 || !/^\d+$/.test(otp)) {
+    alert('Vui lòng nhập mã xác thực 6 chữ số hợp lệ');
+    document.getElementById('otp').focus();
+    return false;
+  }
+
+  if (newPassword.length < 6) {
+    alert('Mật khẩu mới tối thiểu 6 ký tự');
+    document.getElementById('new_password_otp').focus();
+    return false;
+  }
+
+  if (newPassword !== confirmPassword) {
+    alert('Mật khẩu xác nhận không khớp');
+    document.getElementById('confirm_password_otp').focus();
+    return false;
+  }
+
+  const button = event.target.querySelector('button[type="submit"]');
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Đang xác nhận...';
+
+  try {
+    const response = await fetch('/profile/verify-password-otp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: JSON.stringify({
+        current_password: currentPassword,
+        otp: otp,
+        new_password: newPassword,
+        confirm_password: confirmPassword
+      })
+    });
+
+    const data = await response.json();
+    
+    if (data.success) {
+      // Show success message
+      document.getElementById('passwordStep2').style.display = 'none';
+      document.getElementById('passwordSuccess').style.display = 'block';
+    } else {
+      alert('Lỗi: ' + data.message);
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    alert('Có lỗi xảy ra khi xác nhận. Vui lòng thử lại.');
+  } finally {
+    button.disabled = false;
+    button.textContent = originalText;
+  }
+
+  return false;
+}
+
+function goBackPasswordStep1() {
+  document.getElementById('passwordStep2').style.display = 'none';
+  document.getElementById('passwordStep1').style.display = 'block';
+  document.getElementById('passwordStep1Form').reset();
+  document.getElementById('current_password').focus();
+}
+
+function closePasswordSuccess() {
+  document.getElementById('passwordSuccess').style.display = 'none';
+  document.getElementById('passwordStep1').style.display = 'block';
+  document.getElementById('passwordStep1Form').reset();
+  togglePasswordSection();
+}
+
+// Validate password confirmation in step 2
 document.addEventListener('DOMContentLoaded', function() {
-  const passwordForm = document.getElementById('passwordForm');
-  if (passwordForm) {
-    const newPassword = document.getElementById('new_password');
-    const confirmPassword = document.getElementById('confirm_password');
-    
-    function validatePasswordMatch() {
-      if (confirmPassword.value && newPassword.value !== confirmPassword.value) {
-        confirmPassword.setCustomValidity('Mật khẩu xác nhận không khớp');
-      } else {
-        confirmPassword.setCustomValidity('');
-      }
+  const newPasswordOtp = document.getElementById('new_password_otp');
+  const confirmPasswordOtp = document.getElementById('confirm_password_otp');
+  
+  function validatePasswordMatch() {
+    if (confirmPasswordOtp && confirmPasswordOtp.value && newPasswordOtp && newPasswordOtp.value !== confirmPasswordOtp.value) {
+      confirmPasswordOtp.setCustomValidity('Mật khẩu xác nhận không khớp');
+    } else if (confirmPasswordOtp) {
+      confirmPasswordOtp.setCustomValidity('');
     }
-    
-    if (newPassword && confirmPassword) {
-      newPassword.addEventListener('input', validatePasswordMatch);
-      confirmPassword.addEventListener('input', validatePasswordMatch);
-    }
+  }
+  
+  if (newPasswordOtp && confirmPasswordOtp) {
+    newPasswordOtp.addEventListener('input', validatePasswordMatch);
+    confirmPasswordOtp.addEventListener('input', validatePasswordMatch);
   }
 });
 </script>

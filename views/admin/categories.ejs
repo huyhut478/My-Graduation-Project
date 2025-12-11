@@ -1,6 +1,6 @@
 <div class="admin-categories">
   <h1>Quản lý danh mục</h1>
-  
+
   <div class="category-form-card">
     <h2>Thêm danh mục mới</h2>
     <form action="/admin/categories?_csrf=<%= csrfToken %>" method="post" class="category-form">
@@ -21,261 +21,280 @@
           Thêm danh mục
         </button>
         <button type="reset" class="btn secondary">
-          <svg class="icon-refresh" viewBox="0 0 512 512" width="16" height="16" aria-hidden="true" style="vertical-align:middle;margin-right:6px;"><path d="M492 8h-10c-6.627 0-12 5.373-12 12v110.627C426.929 57.261 347.224 8 256 8 123.228 8 14.824 112.338 8.31 243.493 7.971 250.311 13.475 256 20.301 256h10.016c6.353 0 11.646-4.949 11.977-11.293C48.157 132.216 141.097 42 256 42c82.862 0 154.737 47.077 190.289 116H332c-6.627 0-12 5.373-12 12v10c0 6.627 5.373 12 12 12h160c6.627 0 12-5.373 12-12V20c0-6.627-5.373-12-12-12zm-.301 248h-10.015c-6.352 0-11.647 4.949-11.977 11.293C463.841 380.158 370.546 470 256 470c-82.608 0-154.672-46.952-190.299-116H180c6.627 0 12-5.373 12-12v-10c0-6.627-5.373-12-12-12H20c-6.627 0-12 5.373-12 12v160c0 6.627 5.373 12 12 12h10c6.627 0 12-5.373 12-12V381.373C85.071 454.739 164.777 504 256 504c132.773 0 241.176-104.338 247.69-235.493.339-6.818-5.165-12.507-11.991-12.507z" fill="currentColor"></path></svg>
+          <svg class="icon-refresh" viewBox="0 0 512 512" width="16" height="16" aria-hidden="true"
+            style="vertical-align:middle;margin-right:6px;">
+            <path
+              d="M492 8h-10c-6.627 0-12 5.373-12 12v110.627C426.929 57.261 347.224 8 256 8 123.228 8 14.824 112.338 8.31 243.493 7.971 250.311 13.475 256 20.301 256h10.016c6.353 0 11.646-4.949 11.977-11.293C48.157 132.216 141.097 42 256 42c82.862 0 154.737 47.077 190.289 116H332c-6.627 0-12 5.373-12 12v10c0 6.627 5.373 12 12 12h160c6.627 0 12-5.373 12-12V20c0-6.627-5.373-12-12-12zm-.301 248h-10.015c-6.352 0-11.647 4.949-11.977 11.293C463.841 380.158 370.546 470 256 470c-82.608 0-154.672-46.952-190.299-116H180c6.627 0 12-5.373 12-12v-10c0-6.627-5.373-12-12-12H20c-6.627 0-12 5.373-12 12v160c0 6.627 5.373 12 12 12h10c6.627 0 12-5.373 12-12V381.373C85.071 454.739 164.777 504 256 504c132.773 0 241.176-104.338 247.69-235.493.339-6.818-5.165-12.507-11.991-12.507z"
+              fill="currentColor"></path>
+          </svg>
           Đặt lại
         </button>
       </div>
     </form>
   </div>
-  
+
   <div class="categories-list-card">
     <h2>Danh sách danh mục</h2>
-    <% if (!categories || categories.length === 0) { %>
+    <% if (!categories || categories.length===0) { %>
       <p class="muted">Chưa có danh mục nào. Hãy thêm danh mục đầu tiên!</p>
-    <% } else { %>
-      <div class="categories-table-wrapper">
-        <table class="categories-table">
-          <thead>
-            <tr>
-              <th>Tên danh mục</th>
-              <th>Slug</th>
-              <th>Số sản phẩm</th>
-              <th class="center">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% categories.forEach(c => { %>
+      <% } else { %>
+        <div class="categories-table-wrapper">
+          <table class="categories-table">
+            <thead>
               <tr>
-                <td>
-                  <div class="category-cell">
-                    <span class="category-icon-small">📁</span>
-                    <strong><%= c.name %></strong>
-                  </div>
-                </td>
-                <td>
-                  <code class="slug-code">/<%= c.slug %></code>
-                </td>
-                <td>
-                  <span class="product-count-badge"><%= c.product_count || 0 %> sản phẩm</span>
-                </td>
-                <td>
-                  <div class="action-buttons">
-                    <a class="btn small" href="/admin/categories/<%= c.id %>/edit" title="Sửa">
-                      ✏️
-                    </a>
-                    <a class="btn small" href="/category/<%= c.slug %>" target="_blank" title="Xem">
-                      👁️
-                    </a>
-                    <form action="/admin/categories/<%= c.id %>/delete?_csrf=<%= csrfToken %>" method="post" onsubmit="return confirm('Xóa danh mục này? Sản phẩm trong danh mục sẽ bị gỡ khỏi danh mục.')">
-                      <button class="btn small danger" type="submit" title="Xóa">🗑️</button>
-                    </form>
-                  </div>
-                </td>
+                <th>Tên danh mục</th>
+                <th>Slug</th>
+                <th>Số sản phẩm</th>
+                <th class="center">Thao tác</th>
               </tr>
-            <% }) %>
-          </tbody>
-        </table>
-      </div>
-    <% } %>
+            </thead>
+            <tbody>
+              <% categories.forEach(c=> { %>
+                <tr>
+                  <td>
+                    <div class="category-cell">
+                      <span class="category-icon-small">📁</span>
+                      <strong>
+                        <%= c.name %>
+                      </strong>
+                    </div>
+                  </td>
+                  <td>
+                    <code class="slug-code">/<%= c.slug %></code>
+                  </td>
+                  <td>
+                    <span class="product-count-badge">
+                      <%= c.product_count || 0 %> sản phẩm
+                    </span>
+                  </td>
+                  <td>
+                    <div class="action-buttons">
+                      <a class="btn small" href="/admin/categories/<%= c.id %>/edit" title="Sửa">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20px" height="20px" viewBox="0 0 24 24"
+                          fill="none">
+                          <path fill-rule="evenodd" clip-rule="evenodd"
+                            d="M21.1213 2.70705C19.9497 1.53548 18.0503 1.53547 16.8787 2.70705L15.1989 4.38685L7.29289 12.2928C7.16473 12.421 7.07382 12.5816 7.02986 12.7574L6.02986 16.7574C5.94466 17.0982 6.04451 17.4587 6.29289 17.707C6.54127 17.9554 6.90176 18.0553 7.24254 17.9701L11.2425 16.9701C11.4184 16.9261 11.5789 16.8352 11.7071 16.707L19.5556 8.85857L21.2929 7.12126C22.4645 5.94969 22.4645 4.05019 21.2929 2.87862L21.1213 2.70705ZM18.2929 4.12126C18.6834 3.73074 19.3166 3.73074 19.7071 4.12126L19.8787 4.29283C20.2692 4.68336 20.2692 5.31653 19.8787 5.70705L18.8622 6.72357L17.3068 5.10738L18.2929 4.12126ZM15.8923 6.52185L17.4477 8.13804L10.4888 15.097L8.37437 15.6256L8.90296 13.5112L15.8923 6.52185ZM4 7.99994C4 7.44766 4.44772 6.99994 5 6.99994H10C10.5523 6.99994 11 6.55223 11 5.99994C11 5.44766 10.5523 4.99994 10 4.99994H5C3.34315 4.99994 2 6.34309 2 7.99994V18.9999C2 20.6568 3.34315 21.9999 5 21.9999H16C17.6569 21.9999 19 20.6568 19 18.9999V13.9999C19 13.4477 18.5523 12.9999 18 12.9999C17.4477 12.9999 17 13.4477 17 13.9999V18.9999C17 19.5522 16.5523 19.9999 16 19.9999H5C4.44772 19.9999 4 19.5522 4 18.9999V7.99994Z"
+                            fill="#000000" />
+                        </svg>
+                      </a>
+                      <a class="btn small" href="/category/<%= c.slug %>" target="_blank" title="Xem">
+                        👁️
+                      </a>
+                      <form action="/admin/categories/<%= c.id %>/delete?_csrf=<%= csrfToken %>" method="post"
+                        onsubmit="return confirm('Xóa danh mục này? Sản phẩm trong danh mục sẽ bị gỡ khỏi danh mục.')">
+                        <button class="btn small danger" type="submit" title="Xóa"><svg
+                            xmlns="http://www.w3.org/2000/svg" width="20px" height="20px" viewBox="0 0 24 24"
+                            fill="none">
+                            <path
+                              d="M12.0004 9.5L17.0004 14.5M17.0004 9.5L12.0004 14.5M4.50823 13.9546L7.43966 17.7546C7.79218 18.2115 7.96843 18.44 8.18975 18.6047C8.38579 18.7505 8.6069 18.8592 8.84212 18.9253C9.10766 19 9.39623 19 9.97336 19H17.8004C18.9205 19 19.4806 19 19.9084 18.782C20.2847 18.5903 20.5907 18.2843 20.7824 17.908C21.0004 17.4802 21.0004 16.9201 21.0004 15.8V8.2C21.0004 7.0799 21.0004 6.51984 20.7824 6.09202C20.5907 5.71569 20.2847 5.40973 19.9084 5.21799C19.4806 5 18.9205 5 17.8004 5H9.97336C9.39623 5 9.10766 5 8.84212 5.07467C8.6069 5.14081 8.38579 5.2495 8.18975 5.39534C7.96843 5.55998 7.79218 5.78846 7.43966 6.24543L4.50823 10.0454C3.96863 10.7449 3.69883 11.0947 3.59505 11.4804C3.50347 11.8207 3.50347 12.1793 3.59505 12.5196C3.69883 12.9053 3.96863 13.2551 4.50823 13.9546Z"
+                              stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                          </svg></button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+                <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <% } %>
   </div>
 </div>
 
 <style>
-.admin-categories {
-  max-width: 1400px;
-  margin: 0 auto;
-}
+  .admin-categories {
+    max-width: 1400px;
+    margin: 0 auto;
+  }
 
-.category-form-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 30px;
-  margin-bottom: 30px;
-}
+  .category-form-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 30px;
+    margin-bottom: 30px;
+  }
 
-.category-form-card h2 {
-  margin: 0 0 24px 0;
-  font-size: 24px;
-  color: var(--fg);
-  border-bottom: 2px solid var(--green);
-  padding-bottom: 12px;
-}
+  .category-form-card h2 {
+    margin: 0 0 24px 0;
+    font-size: 24px;
+    color: var(--fg);
+    border-bottom: 2px solid var(--green);
+    padding-bottom: 12px;
+  }
 
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  margin-bottom: 20px;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.form-group label {
-  font-weight: 500;
-  color: var(--fg);
-  font-size: 14px;
-}
-
-.form-group input {
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.02);
-  color: var(--fg);
-  font-size: 14px;
-  font-family: inherit;
-  transition: all 0.2s;
-}
-
-.form-group input:focus {
-  outline: none;
-  border-color: var(--green);
-  background: rgba(22, 163, 74, 0.05);
-}
-
-.form-hint {
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.form-actions {
-  display: flex;
-  gap: 12px;
-  padding-top: 20px;
-  border-top: 1px solid var(--border);
-}
-
-.form-actions .btn.large {
-  padding: 14px 28px;
-  font-size: 16px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.categories-list-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 30px;
-}
-
-.categories-list-card h2 {
-  margin: 0 0 24px 0;
-  font-size: 24px;
-  color: var(--fg);
-  border-bottom: 2px solid var(--green);
-  padding-bottom: 12px;
-}
-
-.categories-table-wrapper {
-  overflow-x: auto;
-}
-
-.categories-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.categories-table th {
-  padding: 12px;
-  text-align: left;
-  font-weight: 600;
-  color: var(--fg);
-  border-bottom: 2px solid var(--border);
-  font-size: 14px;
-}
-
-.categories-table td {
-  padding: 16px 12px;
-  border-bottom: 1px solid var(--border);
-}
-
-.categories-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.category-cell {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.category-icon-small {
-  font-size: 20px;
-}
-
-.slug-code {
-  background: rgba(255, 255, 255, 0.05);
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-family: monospace;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.product-count-badge {
-  display: inline-block;
-  padding: 4px 12px;
-  background: rgba(22, 163, 74, 0.1);
-  color: var(--green);
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.action-buttons {
-  display: flex;
-  gap: 6px;
-  justify-content: center;
-}
-
-.action-buttons .btn.small {
-  padding: 6px 10px;
-  font-size: 14px;
-  min-width: 36px;
-}
-
-@media (max-width: 968px) {
   .form-row {
-    grid-template-columns: 1fr;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
   }
-  
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .form-group label {
+    font-weight: 500;
+    color: var(--fg);
+    font-size: 14px;
+  }
+
+  .form-group input {
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--fg);
+    font-size: 14px;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+
+  .form-group input:focus {
+    outline: none;
+    border-color: var(--green);
+    background: rgba(22, 163, 74, 0.05);
+  }
+
+  .form-hint {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 12px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  .form-actions .btn.large {
+    padding: 14px 28px;
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .categories-list-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 30px;
+  }
+
+  .categories-list-card h2 {
+    margin: 0 0 24px 0;
+    font-size: 24px;
+    color: var(--fg);
+    border-bottom: 2px solid var(--green);
+    padding-bottom: 12px;
+  }
+
   .categories-table-wrapper {
-    overflow-x: scroll;
+    overflow-x: auto;
   }
-}
+
+  .categories-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .categories-table th {
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--fg);
+    border-bottom: 2px solid var(--border);
+    font-size: 14px;
+  }
+
+  .categories-table td {
+    padding: 16px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .categories-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .category-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .category-icon-small {
+    font-size: 20px;
+  }
+
+  .slug-code {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .product-count-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    background: rgba(22, 163, 74, 0.1);
+    color: var(--green);
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+  }
+
+  .action-buttons .btn.small {
+    padding: 6px 10px;
+    font-size: 14px;
+    min-width: 36px;
+  }
+
+  @media (max-width: 968px) {
+    .form-row {
+      grid-template-columns: 1fr;
+    }
+
+    .categories-table-wrapper {
+      overflow-x: scroll;
+    }
+  }
 </style>
 
 <script>
-// Auto-generate slug from name
-document.getElementById('name').addEventListener('input', function() {
-  const name = this.value;
-  const slugInput = document.getElementById('slug');
-  
-  if (slugInput.value === '' || slugInput.dataset.autoGenerated === 'true') {
-    const slug = name
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .trim();
-    slugInput.value = slug;
-    slugInput.dataset.autoGenerated = 'true';
-  }
-});
+  // Auto-generate slug from name
+  document.getElementById('name').addEventListener('input', function () {
+    const name = this.value;
+    const slugInput = document.getElementById('slug');
 
-document.getElementById('slug').addEventListener('input', function() {
-  this.dataset.autoGenerated = 'false';
-});
+    if (slugInput.value === '' || slugInput.dataset.autoGenerated === 'true') {
+      const slug = name
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .trim();
+      slugInput.value = slug;
+      slugInput.dataset.autoGenerated = 'true';
+    }
+  });
+
+  document.getElementById('slug').addEventListener('input', function () {
+    this.dataset.autoGenerated = 'false';
+  });
 </script>
-
-

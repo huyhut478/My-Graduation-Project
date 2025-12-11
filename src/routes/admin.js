@@ -6,6 +6,7 @@ import { body, validationResult } from 'express-validator';
 import { db, pool } from '../config/database.js';
 import { logger } from '../config/logger.js';
 import * as dataManager from '../../data/data-manager.js';
+import { assignKeysForProduct } from '../services/keyAssignmentService.js';
 import multer from 'multer';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -115,7 +116,21 @@ router.post('/admin/products/:productId/key', async (req, res) => {
         }
 
         const trimmedKey = key_value ? key_value.trim() : null;
-        await pool.query('UPDATE products SET key_value = $1 WHERE id = $2', [trimmedKey, productId]);
+        if (!trimmedKey) return res.status(400).json({ success: false, error: 'Key không được để trống' });
+
+        // Insert into product_keys to support multiple keys
+        const insertResult = await pool.query(
+            'INSERT INTO product_keys (product_id, key_value, created_at) VALUES ($1, $2, CURRENT_TIMESTAMP) RETURNING id',
+            [productId, trimmedKey]
+        );
+        const keyId = insertResult.rows[0]?.id;
+
+        // Update legacy single key column for compatibility (non-fatal)
+        try {
+            await pool.query('UPDATE products SET key_value = $1 WHERE id = $2', [trimmedKey, productId]);
+        } catch (uErr) {
+            console.error('Non-fatal: failed to update products.key_value:', uErr);
+        }
 
         try {
             dataManager.updateItem('products', productId, { key_value: trimmedKey });
@@ -123,7 +138,17 @@ router.post('/admin/products/:productId/key', async (req, res) => {
             console.error('Error syncing key to data file:', dataError);
         }
 
-        return res.json({ success: true, message: 'Đã cập nhật key cho sản phẩm thành công' });
+        // Auto-assign keys to paid orders that are missing keys
+        (async () => {
+            try {
+                const result = await assignKeysForProduct(pool, productId);
+                console.log('Auto-assign keys result (from admin.js):', result);
+            } catch (assignErr) {
+                console.error('Error auto-assigning keys (from admin.js):', assignErr);
+            }
+        })();
+
+        return res.json({ success: true, message: 'Đã thêm key cho sản phẩm thành công', keyId });
     } catch (error) {
         console.error('Error updating product key:', error);
         return res.status(500).json({ success: false, error: 'Lỗi khi cập nhật key: ' + error.message });

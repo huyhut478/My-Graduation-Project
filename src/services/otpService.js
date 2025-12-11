@@ -28,7 +28,15 @@ export async function sendOtp(email, subject = 'Mã kích hoạt tài khoản', 
     otpStore.set(email, { otp, expireAt });
 
     const transporter = getTransporter();
-    const html = htmlTemplate || `<h2>Mã kích hoạt của bạn: <b>${otp}</b></h2><p>Mã có hiệu lực trong ${Math.round(OTP_EXPIRE_MS / 1000)} giây.</p>`;
+    let html;
+
+    if (htmlTemplate) {
+        // Replace OTP_PLACEHOLDER with actual OTP if template contains it
+        html = htmlTemplate.replace('OTP_PLACEHOLDER', otp);
+    } else {
+        // Default template
+        html = `<h2>Mã kích hoạt của bạn: <b>${otp}</b></h2><p>Mã có hiệu lực trong ${Math.round(OTP_EXPIRE_MS / 1000)} giây.</p>`;
+    }
 
     await transporter.sendMail({
         from: `SafeKeyS <${process.env.SMTP_USER}>`,

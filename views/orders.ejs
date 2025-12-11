@@ -104,7 +104,7 @@
           </div>
           
           <div class="order-items">
-            <h4 class="items-title">📦 Sản phẩm đã mua:</h4>
+            <h4 class="items-title">Sản phẩm đã mua:</h4>
             <div class="items-list">
               <% (itemsByOrder[o.id] || []).forEach(it => { %>
                 <div class="order-item">
@@ -134,7 +134,7 @@
               <% if (hasKeys) { %>
               <div class="order-keys-section">
                 <div class="keys-section-header">
-                  <h5 class="keys-title"><%= keyDisplayTitle || '🔑 Key của bạn' %></h5>
+                  <h5 class="keys-title"><%= keyDisplayTitle || 'Key của bạn' %></h5>
                   <a href="/orders/<%= o.id %>/keys" class="btn-view-keys" target="_blank">Xem chi tiết →</a>
                 </div>
                 <% if (keyDisplayMessage && (!currentUser || currentUser.role !== 'admin')) { %>
@@ -147,7 +147,7 @@
                       <% keysByOrderItem[it.id].forEach((keyValue, idx) => { %>
                         <div class="key-item">
                           <div class="key-content">
-                            <div class="key-label">🔑 Key <%= keysByOrderItem[it.id].length > 1 ? (idx + 1) : '' %>: <%= it.title %></div>
+                            <div class="key-label">Key <%= keysByOrderItem[it.id].length > 1 ? (idx + 1) : '' %>: <%= it.title %></div>
                             <div class="key-preview-wrapper">
                               <code class="key-value collapsed" data-key-value="<%= keyValue %>"><%= (keyValue && keyValue.length) && keyValue.length > 28 ? keyValue.substring(0,28) + '...' : keyValue %></code>
                               <button class="btn-toggle-key" type="button" aria-expanded="false" title="Hiển thị toàn bộ key">Hiện</button>
@@ -155,7 +155,7 @@
                           </div>
                           <div class="key-actions">
                             <button class="btn-copy-key" data-key-value="<%= keyValue %>" type="button" title="Sao chép key">
-                              <span class="btn-icon">📋</span>
+                              <span class="btn-icon"></span>
                               <span class="btn-text">Sao chép</span>
                             </button>
                           </div>
@@ -165,18 +165,24 @@
                   <% }) %>
                 </div>
                 <div class="keys-note">
-                  <span class="note-icon">💡</span>
+                  <span class="note-icon"></span>
                   <span>Bạn có thể sao chép key bằng cách nhấn nút "Sao chép" hoặc click vào key để chọn</span>
                 </div>
               </div>
               <% } else { %>
                 <!-- Order is paid/completed but no keys yet -->
                 <div class="order-keys-section">
-                  <div class="keys-empty">
-                    <span class="empty-icon">⏳</span>
-                    <p>Chưa có key cho sản phẩm này. Vui lòng liên hệ admin để được hỗ trợ.</p>
+                    <div class="keys-empty">
+                      <span class="empty-icon">⏳</span>
+                      <% let anyAvailable = false; %>
+                      <% for (const it of (itemsByOrder[o.id] || [])) { if (availableKeysByProduct && availableKeysByProduct[it.product_id] && availableKeysByProduct[it.product_id] > 0) { anyAvailable = true; break; } } %>
+                      <% if (anyAvailable) { %>
+                        <p>Sản phẩm hiện có key sẵn nhưng đơn này chưa được gán key. Hệ thống sẽ cố gán tự động; nếu không, vui lòng liên hệ admin để được hỗ trợ.</p>
+                      <% } else { %>
+                        <p>Chưa có key cho sản phẩm này. Vui lòng liên hệ admin để được hỗ trợ.</p>
+                      <% } %>
+                    </div>
                   </div>
-                </div>
               <% } %>
             <% } %>
           </div>
@@ -200,7 +206,7 @@
             <div class="order-actions">
               <% if (o.status === 'pending') { %>
                 <a href="/orders/<%= o.id %>/pay" class="btn primary small">
-                  💳 Tiếp tục thanh toán
+                  Tiếp tục thanh toán
                 </a>
                 <form action="/orders/<%= o.id %>/cancel" method="post" style="display: inline;" onsubmit="return confirm('Bạn có chắc muốn hủy đơn hàng này?');">
                   <input type="hidden" name="_csrf" value="<%= csrfToken %>">
@@ -213,13 +219,13 @@
                   <% const hasKeysInOrder = (itemsByOrder[o.id] || []).some(it => keysByOrderItem && keysByOrderItem[it.id] && keysByOrderItem[it.id].length > 0); %>
                   <% if (hasKeysInOrder) { %>
                     <a href="/orders/<%= o.id %>/keys" class="btn primary small" target="_blank">
-                      🔑 Xem tất cả Key
+                      Xem tất cả Key
                     </a>
                   <% } %>
                   <form action="/orders/<%= o.id %>/delete" method="post" style="display: inline;" onsubmit="return confirm('Bạn có chắc muốn xóa đơn hàng này khỏi lịch sử?');">
                     <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                     <button type="submit" class="btn-secondary-delete small">
-                      🗑️ Xóa khỏi lịch sử
+                      Xóa khỏi lịch sử
                     </button>
                   </form>
                 </div>
@@ -244,7 +250,7 @@
             <div class="order-info">
               <h3 class="order-number">Giao dịch #<%= o.id %></h3>
               <p class="order-date">
-                <span>📅</span>
+                <span></span>
                 <strong><%= new Date(o.created_at).toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) %></strong>
                 <span style="margin: 0 8px;">•</span>
                 <span><%= new Date(o.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) %></span>
@@ -275,7 +281,7 @@
           </div>
           
           <div class="order-items">
-            <h4 class="items-title">📦 Sản phẩm đã mua:</h4>
+            <h4 class="items-title">Sản phẩm đã mua:</h4>
             <div class="items-list">
               <% (itemsByOrder[o.id] || []).forEach(it => { %>
                 <div class="order-item">
@@ -305,7 +311,7 @@
               <% if (hasKeys) { %>
               <div class="order-keys-section">
                 <div class="keys-section-header">
-                  <h5 class="keys-title"><%= keyDisplayTitle || '🔑 Key của bạn' %></h5>
+                  <h5 class="keys-title"><%= keyDisplayTitle || 'Key của bạn' %></h5>
                   <a href="/orders/<%= o.id %>/keys" class="btn-view-keys" target="_blank">Xem chi tiết →</a>
                 </div>
                 <% if (keyDisplayMessage && (!currentUser || currentUser.role !== 'admin')) { %>
@@ -318,7 +324,7 @@
                       <% keysByOrderItem[it.id].forEach((keyValue, idx) => { %>
                         <div class="key-item">
                           <div class="key-content">
-                            <div class="key-label">🔑 Key <%= keysByOrderItem[it.id].length > 1 ? (idx + 1) : '' %>: <%= it.title %></div>
+                            <div class="key-label">Key <%= keysByOrderItem[it.id].length > 1 ? (idx + 1) : '' %>: <%= it.title %></div>
                             <div class="key-preview-wrapper">
                               <code class="key-value collapsed" data-key-value="<%= keyValue %>"><%= (keyValue && keyValue.length) && keyValue.length > 28 ? keyValue.substring(0,28) + '...' : keyValue %></code>
                               <button class="btn-toggle-key" type="button" aria-expanded="false" title="Hiển thị toàn bộ key">Hiện</button>
@@ -326,7 +332,7 @@
                           </div>
                           <div class="key-actions">
                             <button class="btn-copy-key" data-key-value="<%= keyValue %>" type="button" title="Sao chép key">
-                              <span class="btn-icon">📋</span>
+                              <span class="btn-icon"></span>
                               <span class="btn-text">Sao chép</span>
                             </button>
                           </div>
@@ -336,7 +342,7 @@
                   <% }) %>
                 </div>
                 <div class="keys-note">
-                  <span class="note-icon">💡</span>
+                  <span class="note-icon"></span>
                   <span>Bạn có thể sao chép key bằng cách nhấn nút "Sao chép" hoặc click vào key để chọn</span>
                 </div>
               </div>
@@ -363,13 +369,13 @@
                 <% const hasKeysInOrder = (itemsByOrder[o.id] || []).some(it => keysByOrderItem && keysByOrderItem[it.id] && keysByOrderItem[it.id].length > 0); %>
                 <% if (hasKeysInOrder) { %>
                   <a href="/orders/<%= o.id %>/keys" class="btn primary small" target="_blank">
-                    🔑 Xem tất cả Key
+                    Xem tất cả Key
                   </a>
                 <% } %>
                 <form action="/orders/<%= o.id %>/delete" method="post" style="display: inline;" onsubmit="return confirm('Bạn có chắc muốn xóa đơn hàng này khỏi lịch sử?');">
                   <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                   <button type="submit" class="btn-secondary-delete small">
-                    🗑️ Xóa khỏi lịch sử
+                    Xóa khỏi lịch sử
                   </button>
                 </form>
               </div>

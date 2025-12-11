@@ -25,6 +25,9 @@
   "js/ts.implicitProjectConfig.checkJs": false,
   "[ejs] patterns": {
     "editor.formatOnPaste": false
+  },
+  "[html]": {
+    "editor.defaultFormatter": "vscode.html-language-features"
   }
 }
 

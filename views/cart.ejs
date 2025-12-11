@@ -462,7 +462,34 @@ function updateQuantity(productId) {
     const totalPrice = (cartData[productId].price * cartData[productId].qty / 100).toLocaleString('vi-VN', {style:'currency',currency:'VND'});
     itemTotalEl.textContent = totalPrice;
   }
-  form.submit();
+  // Submit update via fetch to avoid issues with nested forms
+  try {
+    const csrfInput = document.querySelector('input[name="_csrf"]');
+    const csrfToken = csrfInput ? csrfInput.value : '';
+    const url = '/cart/update/' + encodeURIComponent(productId) + (csrfToken ? ('?_csrf=' + encodeURIComponent(csrfToken)) : '');
+    const body = new URLSearchParams();
+    body.append('quantity', input.value);
+    if (csrfToken) body.append('_csrf', csrfToken);
+
+    fetch(url, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: body.toString()
+    }).then(response => {
+      // Reload page to reflect server-side flash messages and canonical totals
+      window.location.reload();
+    }).catch(err => {
+      console.error('Error submitting quantity update:', err);
+      // Fallback to form.submit() if fetch fails
+      try { form.submit(); } catch (e) { /* ignore */ }
+    });
+  } catch (err) {
+    console.error('Error in updateQuantity:', err);
+    try { form.submit(); } catch (e) { /* ignore */ }
+  }
 }
 
 function toggleSelectAll() {

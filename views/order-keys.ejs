@@ -12,7 +12,7 @@
 
   <div class="keys-content">
     <div class="keys-intro">
-      <h2><%= keyDisplayTitle || '🔑 Key của bạn' %></h2>
+      <h2><%= keyDisplayTitle || 'Key của bạn' %></h2>
       <% if (keyDisplayMessage) { %>
         <p class="keys-intro-message"><%= keyDisplayMessage %></p>
       <% } %>
@@ -43,7 +43,7 @@
                         <button class="btn-toggle-key" type="button" aria-expanded="false" title="Hiển thị toàn bộ key">Hiện</button>
                       </div>
                       <button class="btn-copy-key" data-key-value="<%= keyValue %>" type="button" title="Sao chép">
-                        📋 Sao chép
+                        Sao chép
                       </button>
                     </div>
                   </div>
@@ -51,7 +51,12 @@
               </div>
             <% } else { %>
               <div class="keys-empty">
-                <p>Chưa có key cho sản phẩm này.</p>
+                <% const available = (availableKeysByProduct && availableKeysByProduct[item.product_id]) || 0; %>
+                <% if (available > 0) { %>
+                  <p>Sản phẩm hiện có <%= available %> key sẵn nhưng đơn này chưa được gán key. Hệ thống sẽ cố gán tự động; nếu không, vui lòng liên hệ admin để được hỗ trợ.</p>
+                <% } else { %>
+                  <p>Chưa có key cho sản phẩm này. Vui lòng liên hệ admin để được hỗ trợ.</p>
+                <% } %>
               </div>
             <% } %>
           </div>

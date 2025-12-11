@@ -1,6 +1,6 @@
 <div class="admin-lockout-settings">
   <div class="settings-header">
-    <h1>🔒 Cài đặt khóa tài khoản</h1>
+    <h1>Cài đặt khóa tài khoản</h1>
     <p class="header-subtitle">Quản lý cài đặt khóa tài khoản khi nhập sai mật khẩu</p>
   </div>
 
@@ -26,6 +26,7 @@
     </div>
 
     <form method="POST" action="/admin/lockout-settings" class="settings-form">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
       <div class="form-group">
         <label for="max_attempts">
           Số lần thử tối đa <span class="required">*</span>
@@ -76,7 +77,7 @@
       </div>
 
       <div class="form-actions">
-        <button type="submit" class="btn primary">💾 Lưu cài đặt</button>
+        <button type="submit" class="btn primary">Lưu cài đặt</button>
         <a href="/admin" class="btn secondary">← Quay lại Admin</a>
       </div>
     </form>
@@ -84,7 +85,7 @@
 
   <!-- Locked Accounts List -->
   <div class="locked-accounts-section">
-    <h2>🔒 Tài khoản đang bị khóa</h2>
+    <h2>Tài khoản đang bị khóa</h2>
     <p class="section-description">
       Danh sách các tài khoản đang bị khóa do nhập sai mật khẩu quá nhiều lần.
     </p>
@@ -127,17 +128,7 @@
     <% } %>
   </div>
 
-  <!-- Admin Backup Password Info -->
-  <div class="info-section">
-    <h3>🔑 Mật khẩu dự phòng cho Admin</h3>
-    <div class="info-box">
-      <p><strong>Mật khẩu dự phòng:</strong> <code class="backup-password">141514</code></p>
-      <p class="info-text">
-        Tài khoản admin có thể sử dụng mật khẩu dự phòng <code>141514</code> để đăng nhập ngay cả khi tài khoản bị khóa.
-        Sau khi đăng nhập bằng mật khẩu dự phòng, khóa tài khoản sẽ tự động được gỡ bỏ.
-      </p>
-    </div>
-  </div>
+  
 </div>
 
 <style>
