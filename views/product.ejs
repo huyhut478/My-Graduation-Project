@@ -514,10 +514,10 @@
             style="display:none;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)">
             <h4 style="margin-top:0">Hỏi về sản phẩm</h4>
             <% if (currentUser) { %>
-              <form id="question-form" method="post"
-                action="/product/<%= product.id %>/question?_csrf=<%= csrfToken %>">
+              <form id="question-form">
                 <input type="hidden" name="product_id" value="<%= product.id %>" />
                 <input type="hidden" name="author_name" value="<%= currentUser.name %>" />
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
                 <div style="margin-bottom:12px;display:flex;flex-direction:column;gap:8px">
                   <div
                     style="display:flex;align-items:center;gap:8px;padding:8px;background:var(--bg);border-radius:6px">
@@ -532,8 +532,10 @@
                   </label>
                 </div>
                 <div style="display:flex;gap:8px;justify-content:flex-end">
-                  <button class="btn primary" type="submit">Gửi câu hỏi</button>
+                  <button class="btn primary" type="submit" id="submit-question-btn">Gửi câu hỏi</button>
                   <button type="button" class="btn-cancel-question btn secondary">Hủy</button>
+                </div>
+                <div id="question-form-message" style="margin-top:8px;padding:8px;border-radius:4px;display:none;">
                 </div>
               </form>
               <% } else { %>
@@ -549,8 +551,8 @@
           <div id="reviews-form-section" style="display:none">
             <h4 style="margin-top:0">⭐ Gửi đánh giá</h4>
             <% if (typeof userCanReview !=='undefined' && userCanReview) { %>
-              <form id="review-form" method="post" action="/product/<%= product.id %>/review?_csrf=<%= csrfToken %>"
-                enctype="multipart/form-data">
+              <form id="review-form" enctype="multipart/form-data">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
                 <input type="hidden" name="product_id" value="<%= product.id %>" />
                 <div
                   style="display:flex;align-items:center;gap:8px;padding:8px;background:var(--bg);border-radius:6px;margin-bottom:12px">
@@ -598,8 +600,10 @@
                       </label>
                     </div>
                     <div style="display:flex;gap:8px">
-                      <button class="btn primary" type="submit">Gửi đánh giá</button>
+                      <button class="btn primary" type="submit" id="submit-review-btn">Gửi đánh giá</button>
                       <button type="button" id="cancel-review" class="btn secondary">Hủy</button>
+                      <div id="review-form-message" style="margin-top:8px;padding:8px;border-radius:4px;display:none;">
+                      </div>
                     </div>
                   </div>
                 </div>
