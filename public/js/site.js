@@ -395,10 +395,110 @@ window.toggleWishlist = toggleWishlist;
         });
     }
 
-    if (btnCancelQuestion && reviewContainer) {
-        btnCancelQuestion.addEventListener('click', function () {
-            if (questionsFormSection) questionsFormSection.style.display = 'none';
+    // AJAX: Question Form Submission
+    const questionForm = qs('#question-form');
+    const submitQuestionBtn = qs('#submit-question-btn');
+    const questionFormMessage = qs('#question-form-message');
+    const questionsList = qs('#questions-list');
+
+    if (questionForm) {
+        questionForm.addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const productId = formData.get('product_id');
+            const body = formData.get('body');
+
+            if (!body || !body.trim()) {
+                showQuestionMessage('Vui lòng nhập nội dung câu hỏi', 'error');
+                return;
+            }
+
+            // Disable submit button
+            if (submitQuestionBtn) {
+                submitQuestionBtn.disabled = true;
+                submitQuestionBtn.textContent = 'Đang gửi...';
+            }
+
+            try {
+                // Send as application/x-www-form-urlencoded so Express can parse req.body
+                const params = new URLSearchParams();
+                params.append('product_id', formData.get('product_id') || '');
+                params.append('author_name', formData.get('author_name') || '');
+                params.append('body', formData.get('body') || '');
+                const csrf = formData.get('_csrf');
+                if (csrf) params.append('_csrf', csrf);
+
+                const response = await fetch(`/product/${productId}/question`, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: Object.assign({ 'Content-Type': 'application/x-www-form-urlencoded' }, csrf ? { 'x-csrf-token': csrf } : {}),
+                    body: params.toString()
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showQuestionMessage(result.message, 'success');
+
+                    // Reset form
+                    this.reset();
+
+                    // Append new question to the list
+                    if (questionsList && result.question) {
+                        const newQuestion = createQuestionElement(result.question);
+                        questionsList.insertAdjacentHTML('afterbegin', newQuestion);
+                    }
+
+                    // Optional: hide form after 2 seconds
+                    setTimeout(() => {
+                        if (questionsFormSection) questionsFormSection.style.display = 'none';
+                    }, 2000);
+                } else {
+                    showQuestionMessage(result.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error submitting question:', error);
+                showQuestionMessage('Không thể gửi câu hỏi — vui lòng thử lại', 'error');
+            } finally {
+                // Re-enable submit button
+                if (submitQuestionBtn) {
+                    submitQuestionBtn.disabled = false;
+                    submitQuestionBtn.textContent = 'Gửi câu hỏi';
+                }
+            }
         });
+    }
+
+    function showQuestionMessage(message, type) {
+        if (questionFormMessage) {
+            questionFormMessage.textContent = message;
+            questionFormMessage.style.display = 'block';
+            questionFormMessage.style.background = type === 'success' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)';
+            questionFormMessage.style.color = type === 'success' ? 'var(--green-500)' : '#ef4444';
+            questionFormMessage.style.borderLeft = `3px solid ${type === 'success' ? 'var(--green-500)' : '#ef4444'}`;
+        }
+    }
+
+    function createQuestionElement(question) {
+        const createdDate = new Date(question.created_at).toLocaleDateString('vi-VN');
+        return `
+            <div class="question-item" style="padding:12px;border:1px solid var(--border);border-radius:6px;margin-bottom:12px;background:var(--bg)">
+                <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
+                    <div>
+                        <strong style="color:var(--fg)">${escapeHtml(question.author_name)}</strong>
+                        <span style="color:var(--muted);font-size:12px;margin-left:8px">${createdDate}</span>
+                    </div>
+                </div>
+                <p style="margin:0;color:var(--fg)">${escapeHtml(question.body)}</p>
+            </div>
+        `;
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     // Star rating input

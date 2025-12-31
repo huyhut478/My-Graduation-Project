@@ -1556,30 +1556,39 @@ app.get('/product/:slug', async (req, res) => {
 app.post('/product/:id/question', async (req, res) => {
   try {
     const productId = Number(req.params.id);
-    if (isNaN(productId)) return res.redirect('back');
+    if (isNaN(productId)) return res.status(400).json({ success: false, message: 'ID sản phẩm không hợp lệ' });
 
     const body = (req.body.body || '').trim();
     if (!body) {
-      req.flash('error', 'Vui lòng nhập nội dung câu hỏi');
-      return res.redirect('back');
+      return res.status(400).json({ success: false, message: 'Vui lòng nhập nội dung câu hỏi' });
     }
 
     const userId = req.session?.user?.id || null;
     const authorName = req.session?.user?.name || req.body.author_name || 'Khách';
 
-    await pool.query(
+    const result = await pool.query(
       `INSERT INTO questions (product_id, user_id, author_name, body, created_at, updated_at) 
-       VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+       VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id, created_at`,
       [productId, userId, authorName, body]
     );
 
-    req.flash('success', 'Cảm ơn — câu hỏi của bạn đã được gửi.');
-    const referer = req.get('Referer') || '/';
-    res.redirect(referer);
+    const question = result.rows[0];
+
+    // Return JSON response for AJAX handling
+    res.json({
+      success: true,
+      message: 'Cảm ơn — câu hỏi của bạn đã được gửi.',
+      question: {
+        id: question.id,
+        author_name: authorName,
+        body: body,
+        created_at: question.created_at,
+        user_id: userId
+      }
+    });
   } catch (err) {
     console.error('Error creating question', err);
-    req.flash('error', 'Không thể gửi câu hỏi — vui lòng thử lại');
-    res.redirect('back');
+    res.status(500).json({ success: false, message: 'Không thể gửi câu hỏi — vui lòng thử lại' });
   }
 });
 
@@ -1617,7 +1626,7 @@ app.delete('/api/questions/:id', async (req, res) => {
 app.post('/product/:id/review', uploadReview.array('images', 3), async (req, res) => {
   try {
     const productId = Number(req.params.id);
-    if (isNaN(productId)) return res.redirect('back');
+    if (isNaN(productId)) return res.status(400).json({ success: false, message: 'ID sản phẩm không hợp lệ' });
 
     await reviewService.ensureReviewsTableExists(pool);
 
@@ -1629,8 +1638,7 @@ app.post('/product/:id/review', uploadReview.array('images', 3), async (req, res
     const userId = req.session?.user?.id || null;
     // Only logged-in customers who purchased may submit reviews
     if (!userId) {
-      req.flash('error', 'Bạn cần đăng nhập và đã mua sản phẩm để gửi đánh giá');
-      return res.redirect('back');
+      return res.status(401).json({ success: false, message: 'Bạn cần đăng nhập và đã mua sản phẩm để gửi đánh giá' });
     }
 
     let verified = false;
@@ -1646,15 +1654,13 @@ app.post('/product/:id/review', uploadReview.array('images', 3), async (req, res
 
     // must be a purchaser
     if (!verified) {
-      req.flash('error', 'Chỉ những người đã mua sản phẩm mới được gửi đánh giá');
-      return res.redirect('back');
+      return res.status(403).json({ success: false, message: 'Chỉ những người đã mua sản phẩm mới được gửi đánh giá' });
     }
 
     // Prevent duplicate reviews by the same user
     const already = await reviewService.hasUserReviewed(pool, productId, userId);
     if (already) {
-      req.flash('error', 'Bạn chỉ được gửi một đánh giá cho mỗi sản phẩm');
-      return res.redirect('back');
+      return res.status(400).json({ success: false, message: 'Bạn chỉ được gửi một đánh giá cho mỗi sản phẩm' });
     }
 
     const authorName = req.session?.user?.name || req.body.author_name || 'Khách';
@@ -1670,13 +1676,22 @@ app.post('/product/:id/review', uploadReview.array('images', 3), async (req, res
       verified_purchase: verified
     });
 
-    req.flash('success', 'Cảm ơn — đánh giá của bạn đã được gửi.');
-    const referer = req.get('Referer') || '/';
-    res.redirect(referer);
+    res.json({
+      success: true,
+      message: 'Cảm ơn — đánh giá của bạn đã được gửi.',
+      review: {
+        author_name: authorName,
+        rating,
+        title: title || '',
+        body,
+        images,
+        created_at: new Date().toISOString(),
+        verified_purchase: verified
+      }
+    });
   } catch (err) {
     console.error('Error creating review', err);
-    req.flash('error', 'Không thể gửi đánh giá — vui lòng thử lại');
-    res.redirect('back');
+    res.status(500).json({ success: false, message: 'Không thể gửi đánh giá — vui lòng thử lại' });
   }
 });
 

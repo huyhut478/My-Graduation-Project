@@ -510,6 +510,25 @@ body, .btn, .form-input, .form-textarea, .settings-dropdown {
   color: var(--fg);
 }
 
+
+.theme-light footer {
+  background: rgba(255, 255, 255, 0.5) !important;
+  border-top-color: var(--border) !important;
+  color: var(--muted) !important;
+}
+
+.theme-light footer a {
+  color: var(--green) !important;
+}
+
+.theme-light footer a:hover {
+  color: var(--green-700) !important;
+}
+
+.theme-light footer .muted {
+  color: var(--muted) !important;
+}
+
 .user-info {
   display: flex;
   align-items: center;
@@ -847,7 +866,39 @@ main {
   overflow: hidden;
   box-shadow: 0 8px 32px var(--shadow);
 }
+/* LIGHT MODE CONFIGURATION */
+.theme-light .hero-title {
+  /* Thay đổi dải màu gradient sang tông đậm hơn để dễ đọc trên nền sáng */
+  background: linear-gradient(135deg, #065f46 0%, #059669 30%, #10b981 60%, #34d399 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  
+  /* Giảm bớt hiệu ứng phát sáng (glow) vì trên nền sáng nó dễ bị mờ chữ */
+  filter: drop-shadow(0 2px 4px rgba(5, 150, 105, 0.2));
+  text-shadow: none; /* Xóa shadow phát sáng lan tỏa */
+}
 
+.theme-light .hero-subtitle {
+  /* Đổi từ màu trắng/xám nhạt sang màu xám đen chuyên nghiệp */
+  color: #374151; /* gray-700 */
+  text-shadow: none; /* Xóa bóng đổ của chữ trắng */
+}
+
+.theme-light .hero-feature {
+  /* Đổi màu chữ sang xanh đậm để nổi bật trên nền tag */
+  color: #065f46; 
+  /* Nền tag sáng hơn, ít trong suốt hơn để rõ khối */
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  text-shadow: none;
+}
+
+.theme-light .hero-feature:hover {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.4);
+}
 .hero::before {
   content: '';
   position: absolute;
