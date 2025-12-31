@@ -73,7 +73,7 @@
       <!-- Combined Hero & Carousel Section -->
       <% if (typeof featuredProducts !== 'undefined' && featuredProducts && featuredProducts.length > 0) { %>
         <div class="hero-carousel-section">
-          <div class="hero-header">
+          <!-- <div class="hero-header">
             <h1 class="hero-title"><%= typeof homepageSettings !== 'undefined' && homepageSettings.hero_title ? homepageSettings.hero_title : 'SafeKeyS' %></h1>
             <p class="hero-subtitle"><%= typeof homepageSettings !== 'undefined' && homepageSettings.hero_subtitle ? homepageSettings.hero_subtitle : 'Mua key phần mềm, game nhanh chóng - Uy tín - Nhanh gọn - Hỗ trợ 24/7' %></p>
             <div class="hero-features">
@@ -89,7 +89,7 @@
                 <% } %>
               <% }) %>
             </div>
-          </div>
+          </div> -->
           
           <div class="carousel-header">
             <h2 class="carousel-title"><%= typeof homepageSettings !== 'undefined' && homepageSettings.carousel_title ? homepageSettings.carousel_title : 'Sản phẩm nổi bật' %></h2>
@@ -1249,6 +1249,7 @@
   }
   
   .carousel-section {
+    border: 5px solid #10b981;
     padding: 0 45px;
   }
   
